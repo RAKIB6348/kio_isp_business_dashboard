@@ -110,22 +110,22 @@ class KioIspBusinessDashboard(models.AbstractModel):
                 ),
             ],
             "secondary_kpis": [
-                self._kpi(
-                    "Cash In Hand",
-                    cash_in_hand,
-                    "Available",
-                    "fa-money",
-                    "green",
-                    action=self._journal_action("Cash In Hand", "cash"),
-                ),
-                self._kpi(
-                    "Bank Balance",
-                    bank_balance,
-                    "Current",
-                    "fa-university",
-                    "blue",
-                    action=self._journal_action("Bank Balance", "bank"),
-                ),
+                # self._kpi(
+                #     "Cash In Hand",
+                #     cash_in_hand,
+                #     "Available",
+                #     "fa-money",
+                #     "green",
+                #     action=self._journal_action("Cash In Hand", "cash"),
+                # ),
+                # self._kpi(
+                #     "Bank Balance",
+                #     bank_balance,
+                #     "Current",
+                #     "fa-university",
+                #     "blue",
+                #     action=self._journal_action("Bank Balance", "bank"),
+                # ),
             ] + self._cash_bank_journal_kpis() + [
                 self._kpi(
                     "Accounts Receivable",
