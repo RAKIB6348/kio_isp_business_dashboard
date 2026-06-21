@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
+
     <t t-name="kio_isp_business_dashboard.BusinessOverviewDashboard">
         <div class="kio-business-dashboard">
+
             <t t-if="state.loading">
                 <div class="kio-dashboard-loading">Loading business overview...</div>
             </t>
+
             <t t-else="">
+
+                <!-- ================= HEADER ================= -->
                 <section class="kio-dashboard-header">
                     <div class="kio-brand-block">
                         <span class="kio-app-mark"><i/><i/><i/><i/></span>
@@ -14,30 +19,38 @@
                             <p t-esc="state.data.period.subtitle"/>
                         </div>
                     </div>
+
                     <div class="kio-header-actions">
                         <form class="kio-date-range" t-on-submit.prevent="applyDateRange">
                             <i class="fa fa-calendar"/>
                             <input type="date" t-att-value="state.dateFrom" t-on-change="updateDateFrom"/>
                             <span>-</span>
                             <input type="date" t-att-value="state.dateTo" t-on-change="updateDateTo"/>
-                            <button type="submit" title="Apply Date Range"><i class="fa fa-check"/></button>
+                            <button type="submit"><i class="fa fa-check"/></button>
                         </form>
-                        <!-- <button class="kio-control" type="button"><i class="fa fa-filter"/> Filters</button> -->
-                        <!-- <button class="kio-bell" type="button"><i class="fa fa-bell-o"/><span>0</span></button> -->
-                        <button class="kio-control primary" type="button"><i class="fa fa-download"/> Export</button>
+
+                        <button class="kio-control primary" type="button">
+                            <i class="fa fa-download"/> Export
+                        </button>
+
                         <div class="kio-profile">
-                            <div><strong>Owner</strong><small>Super Admin</small></div>
+                            <div>
+                                <strong>Owner</strong>
+                                <small>Super Admin</small>
+                            </div>
                             <span class="kio-avatar">A</span>
                         </div>
                     </div>
                 </section>
 
+                <!-- ================= ROW 1: PRIMARY KPI ================= -->
                 <section class="kio-kpi-row primary">
                     <t t-foreach="state.data.primary_kpis" t-as="kpi" t-key="kpi.title">
                         <t t-call="kio_isp_business_dashboard.KpiCard"/>
                     </t>
                 </section>
 
+                <!-- ================= ROW 2: SECONDARY KPI ================= -->
                 <div class="kio-kpi-scroll-wrapper">
                     <section class="kio-kpi-row secondary kio-kpi-row-scrollable">
                         <t t-foreach="state.data.secondary_kpis" t-as="kpi" t-key="kpi.title">
@@ -46,102 +59,170 @@
                     </section>
                 </div>
 
-                <section class="kio-main-content">
-                    <section class="kio-third-row">
-                        <article class="kio-card kio-pl-card">
-                            <div class="kio-card-header compact">
-                                <div><h2>Profit &amp; Loss Statement (Summary)</h2><p>Summary</p></div>
-                            </div>
-                            <div class="kio-pl-table">
-                                <div class="kio-pl-head"><span>Particulars</span><span>Amount</span></div>
-                                <div t-foreach="state.data.pl_rows" t-as="row" t-key="row.label" t-att-class="row.highlight ? 'kio-pl-row highlight' : 'kio-pl-row'">
-                                    <span t-esc="row.label"/>
-                                    <strong t-esc="formatCurrency(row.amount)"/>
-                                </div>
-                            </div>
-                            <a href="#" class="kio-card-footer-link kio-pl-link" role="button">View Full P&amp;L Report <i class="fa fa-arrow-right"/></a>
-                        </article>
+                <!-- ================= ROW 3: 4 CARDS ================= -->
+                <section class="kio-fourth-row">
 
-                        <t t-set="panelTitle" t-value="'Cash Flow Summary'"/>
-                        <t t-set="panelItems" t-value="state.data.cash_flow"/>
-                        <t t-call="kio_isp_business_dashboard.DonutPanel"/>
+                    <!-- Aged Receivable -->
+                    <t t-set="panelTitle" t-value="'Aged Receivable'"/>
+                    <t t-set="panelItems" t-value="state.data.aged_receivable"/>
+                    <t t-call="kio_isp_business_dashboard.DonutPanel"/>
 
-                        <t t-set="panelTitle" t-value="'Aged Receivable'"/>
-                        <t t-set="panelItems" t-value="state.data.aged_receivable"/>
-                        <t t-call="kio_isp_business_dashboard.DonutPanel"/>
-                    </section>
+                    <!-- Top Due Customers -->
+                    <t t-set="tableTitle" t-value="'Top Due Customers'"/>
+                    <t t-set="tableItems" t-value="state.data.top_due_customers"/>
+                    <t t-set="nameHeader" t-value="'Customer Name'"/>
+                    <t t-call="kio_isp_business_dashboard.DueTable"/>
 
-                    <section class="kio-fourth-row">
-                        <t t-set="tableTitle" t-value="'Top Due Customers'"/>
-                        <t t-set="tableItems" t-value="state.data.top_due_customers"/>
-                        <t t-set="nameHeader" t-value="'Customer Name'"/>
-                        <t t-call="kio_isp_business_dashboard.DueTable"/>
+                    <!-- Aged Payable -->
+                    <t t-set="panelTitle" t-value="'Aged Payable'"/>
+                    <t t-set="panelItems" t-value="state.data.aged_payable"/>
+                    <t t-call="kio_isp_business_dashboard.DonutPanel"/>
 
-                        <t t-set="panelTitle" t-value="'Aged Payable'"/>
-                        <t t-set="panelItems" t-value="state.data.aged_payable"/>
-                        <t t-call="kio_isp_business_dashboard.DonutPanel"/>
+                    <!-- Top Due Vendors -->
+                    <t t-set="tableTitle" t-value="'Top Due Vendors'"/>
+                    <t t-set="tableItems" t-value="state.data.top_due_vendors"/>
+                    <t t-set="nameHeader" t-value="'Vendor Name'"/>
+                    <t t-call="kio_isp_business_dashboard.DueTable"/>
 
-                        <t t-set="tableTitle" t-value="'Top Due Vendors'"/>
-                        <t t-set="tableItems" t-value="state.data.top_due_vendors"/>
-                        <t t-set="nameHeader" t-value="'Vendor Name'"/>
-                        <t t-call="kio_isp_business_dashboard.DueTable"/>
-
-                        <aside class="kio-quick-nav kio-card">
-                            <div class="kio-card-header compact">
-                                <div><h2>Quick Navigation</h2><p>Business modules</p></div>
-                            </div>
-                            <div class="kio-nav-grid">
-                                <button t-foreach="state.data.quick_nav" t-as="nav" t-key="nav.label" t-attf-class="kio-nav-card kio-tone-{{ nav.tone }}" type="button">
-                                    <i t-attf-class="fa {{ nav.icon }}"/>
-                                    <span t-esc="nav.label"/>
-                                </button>
-                            </div>
-                        </aside>
-                    </section>
                 </section>
+
+                <!-- ================= ROW 4: BOTTOM ROW ================= -->
+                <section class="kio-third-row">
+
+                    <!-- Profit & Loss -->
+                    <article class="kio-card kio-pl-card">
+                        <div class="kio-card-header compact">
+                            <h2>Profit &amp; Loss Statement (Summary)</h2>
+                        </div>
+
+                        <div class="kio-pl-table">
+                            <div class="kio-pl-head">
+                                <span>Particulars</span>
+                                <span>Amount</span>
+                            </div>
+
+                            <div t-foreach="state.data.pl_rows"
+                                 t-as="row"
+                                 t-key="row.label"
+                                 t-att-class="row.highlight ? 'kio-pl-row highlight' : 'kio-pl-row'">
+
+                                <span t-esc="row.label"/>
+                                <strong t-esc="formatCurrency(row.amount)"/>
+                            </div>
+                        </div>
+
+                        <a href="#" class="kio-card-footer-link">
+                            View Full P&amp;L Report
+                        </a>
+                    </article>
+
+                    <!-- Cash Flow -->
+                    <t t-set="panelTitle" t-value="'Cash Flow Summary'"/>
+                    <t t-set="panelItems" t-value="state.data.cash_flow"/>
+                    <t t-call="kio_isp_business_dashboard.DonutPanel"/>
+
+                    <!-- Quick Navigation -->
+                    <aside class="kio-quick-nav kio-card">
+
+                        <div class="kio-card-header compact">
+                            <h2>Quick Navigation</h2>
+                        </div>
+
+                        <div class="kio-nav-grid">
+                            <button t-foreach="state.data.quick_nav"
+                                    t-as="nav"
+                                    t-key="nav.label"
+                                    t-attf-class="kio-nav-card kio-tone-{{ nav.tone }}"
+                                    type="button">
+
+                                <i t-attf-class="fa {{ nav.icon }}"/>
+                                <span t-esc="nav.label"/>
+                            </button>
+                        </div>
+
+                    </aside>
+
+                </section>
+
             </t>
         </div>
     </t>
 
+    <!-- ================= KPI CARD ================= -->
     <t t-name="kio_isp_business_dashboard.KpiCard">
-        <article t-attf-class="kio-kpi-card kio-tone-{{ kpi.tone }}" t-on-click="() => this.openKpiAction(kpi)">
+        <article class="kio-kpi-card kio-tone-{{ kpi.tone }}"
+                 t-on-click="() => this.openKpiAction(kpi)">
+
             <div class="kio-kpi-top">
-                <span class="kio-kpi-icon"><i t-attf-class="fa {{ kpi.icon }}"/></span>
-                <span t-att-class="kpi.change.indexOf('-') === 0 ? 'kio-change down' : 'kio-change'" t-esc="kpi.change"/>
+                <span class="kio-kpi-icon">
+                    <i t-attf-class="fa {{ kpi.icon }}"/>
+                </span>
+
+                <span t-att-class="kpi.change.indexOf('-') === 0 ? 'kio-change down' : 'kio-change'"
+                      t-esc="kpi.change"/>
             </div>
+
             <span class="kio-kpi-title" t-esc="kpi.title"/>
             <strong t-esc="formatMetric(kpi)"/>
-            <a href="#" role="button" t-on-click.prevent.stop="() => this.openKpiAction(kpi)">View Details</a>
+
+            <a href="#" t-on-click.prevent.stop="() => this.openKpiAction(kpi)">
+                View Details
+            </a>
+
         </article>
     </t>
 
+    <!-- ================= DONUT ================= -->
     <t t-name="kio_isp_business_dashboard.DonutPanel">
         <article class="kio-card kio-donut-card">
+
             <div class="kio-card-header compact">
-                <div><h2 t-esc="panelTitle"/><p>Current period</p></div>
+                <h2 t-esc="panelTitle"/>
             </div>
+
             <div class="kio-donut-body">
+
                 <div class="kio-donut" t-att-style="donutStyle(panelItems)">
-                    <div><strong t-esc="formatPercent(panelItems[0] ? panelItems[0].ratio : 0)"/><span>Share</span></div>
-                </div>
-                <div class="kio-legend-list">
-                    <div t-foreach="panelItems" t-as="item" t-key="item.label" class="kio-legend-row">
-                        <span t-attf-class="kio-dot kio-tone-{{ item.tone }}"/>
-                        <div><strong t-esc="item.label"/><small><t t-esc="formatCurrency(item.amount)"/> - <t t-esc="formatPercent(item.ratio)"/></small></div>
+                    <div>
+                        <strong t-esc="formatPercent(panelItems[0] ? panelItems[0].ratio : 0)"/>
+                        <span>Share</span>
                     </div>
                 </div>
+
+                <div class="kio-legend-list">
+                    <div t-foreach="panelItems" t-as="item" t-key="item.label">
+                        <span t-attf-class="kio-dot kio-tone-{{ item.tone }}"/>
+                        <div>
+                            <strong t-esc="item.label"/>
+                            <small>
+                                <t t-esc="formatCurrency(item.amount)"/>
+                                - <t t-esc="formatPercent(item.ratio)"/>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
             </div>
-            <a href="#" class="kio-card-footer-link" role="button">View <t t-esc="panelTitle"/> <i class="fa fa-arrow-right"/></a>
+
         </article>
     </t>
 
+    <!-- ================= TABLE ================= -->
     <t t-name="kio_isp_business_dashboard.DueTable">
         <article class="kio-card kio-table-card">
+
             <div class="kio-card-header compact">
-                <div><h2 t-esc="tableTitle"/><p>Highest outstanding balances</p></div>
+                <h2 t-esc="tableTitle"/>
             </div>
+
             <div class="kio-due-table">
-                <div class="kio-due-head"><span t-esc="nameHeader"/><span>Due Amount</span><span>Overdue Days</span></div>
+
+                <div class="kio-due-head">
+                    <span t-esc="nameHeader"/>
+                    <span>Due Amount</span>
+                    <span>Days</span>
+                </div>
+
                 <t t-if="tableItems.length">
                     <div t-foreach="tableItems" t-as="item" t-key="item.name" class="kio-due-row">
                         <strong t-esc="item.name"/>
@@ -149,11 +230,14 @@
                         <em t-esc="item.days"/>
                     </div>
                 </t>
+
                 <t t-else="">
-                    <div class="kio-empty-state">No overdue records found.</div>
+                    <div class="kio-empty-state">No overdue records found</div>
                 </t>
+
             </div>
-            <a href="#" class="kio-card-footer-link" role="button">View All <t t-esc="tableTitle.replace('Top Due ', '')"/> <i class="fa fa-arrow-right"/></a>
+
         </article>
     </t>
+
 </templates>
