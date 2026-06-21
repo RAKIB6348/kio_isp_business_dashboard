@@ -21,6 +21,7 @@ Long description of module's purpose
     'depends': [
         'web',
         'account',
+        'hr_expense',
         'kio_account_accountant',
         'kio_account_reports',
     ],

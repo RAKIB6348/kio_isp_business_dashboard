@@ -41,7 +41,7 @@ class KioIspBusinessDashboard(models.AbstractModel):
                 self._kpi("Total Sales", revenue, "+12.6%", "fa-line-chart", "blue", action=self._move_action("Total Sales", date_from, today, ["out_invoice", "out_refund"])),
                 self._kpi("Total Collection", collection, "+8.2%", "fa-credit-card", "green", action=self._payment_action("Total Collection", date_from, today, "inbound")),
                 self._kpi("Total Invoice", invoice_total, "+4.7%", "fa-file-text-o", "violet", "number", action=self._move_action("Total Invoice", date_from, today, ["out_invoice"])),
-                self._kpi("Total Expenses", cogs + operating_expenses, "-3.4%", "fa-shopping-bag", "orange", action=self._move_action("Total Expenses", date_from, today, ["in_invoice", "in_refund"])),
+                self._kpi("Total Expenses", cogs + operating_expenses, "-3.4%", "fa-shopping-bag", "orange", action=self._expense_action("Total Expenses", date_from, today)),
                 self._kpi("Gross Profit", gross_profit, "+10.9%", "fa-pie-chart", "cyan", action=self._move_line_action("Gross Profit", date_from, today, ["income", "income_other", "expense_direct_cost"])),
                 self._kpi("Net Profit", net_profit, "+7.8%", "fa-trophy", "red", action=self._move_line_action("Net Profit", date_from, today, ["income", "income_other", "expense", "expense_depreciation", "expense_direct_cost"])),
             ],
@@ -105,6 +105,20 @@ class KioIspBusinessDashboard(models.AbstractModel):
             "res_model": "account.payment",
             "views": [[False, "list"], [False, "form"]],
             "domain": domain,
+            "context": {"create": False},
+        }
+
+    def _expense_action(self, name, date_from, date_to):
+        return {
+            "type": "ir.actions.act_window",
+            "name": name,
+            "res_model": "hr.expense",
+            "views": [[False, "tree"], [False, "form"]],
+            "domain": [
+                ("company_id", "=", self.env.company.id),
+                ("date", ">=", date_from),
+                ("date", "<=", date_to),
+            ],
             "context": {"create": False},
         }
 
