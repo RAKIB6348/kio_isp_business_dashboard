@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
     <t t-name="kio_isp_business_dashboard.BusinessOverviewDashboard">
-        <div class="kio-business-dashboard o_action">
+        <div class="kio-business-dashboard">
             <t t-if="state.loading">
                 <div class="kio-dashboard-loading">Loading business overview...</div>
             </t>
