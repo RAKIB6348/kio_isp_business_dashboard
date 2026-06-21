@@ -16,6 +16,7 @@ class KioIspBusinessDashboard(models.AbstractModel):
         revenue = max(-self._sum_lines_by_account_type(["income", "income_other"], date_from, today), 0.0)
         cogs = max(self._sum_lines_by_account_type(["expense_direct_cost"], date_from, today), 0.0)
         operating_expenses = max(self._sum_lines_by_account_type(["expense", "expense_depreciation"], date_from, today), 0.0)
+        hr_expense_total = self._expense_total(date_from, today)
         gross_profit = revenue - cogs
         operating_profit = gross_profit - operating_expenses
         other_income = max(-self._sum_lines_by_account_type(["income_other"], date_from, today), 0.0)
@@ -41,7 +42,7 @@ class KioIspBusinessDashboard(models.AbstractModel):
                 self._kpi("Total Sales", revenue, "+12.6%", "fa-line-chart", "blue", action=self._sale_order_action("Total Sales", date_from, today)),
                 self._kpi("Total Collection", collection, "+8.2%", "fa-credit-card", "green", action=self._payment_action("Total Collection", date_from, today, "inbound")),
                 self._kpi("Total Invoice", invoice_total, "+4.7%", "fa-file-text-o", "violet", "number", action=self._move_action("Total Invoice", date_from, today, ["out_invoice"])),
-                self._kpi("Total Expenses", cogs + operating_expenses, "-3.4%", "fa-shopping-bag", "orange", action=self._expense_action("Total Expenses", date_from, today)),
+                self._kpi("Total Expenses", hr_expense_total, "-3.4%", "fa-shopping-bag", "orange", action=self._expense_action("Total Expenses", date_from, today)),
                 self._kpi("Gross Profit", gross_profit, "+10.9%", "fa-pie-chart", "cyan", action=self._move_line_action("Gross Profit", date_from, today, ["income", "income_other", "expense_direct_cost"])),
                 self._kpi("Net Profit", net_profit, "+7.8%", "fa-trophy", "red", action=self._move_line_action("Net Profit", date_from, today, ["income", "income_other", "expense", "expense_depreciation", "expense_direct_cost"])),
             ],
@@ -122,17 +123,28 @@ class KioIspBusinessDashboard(models.AbstractModel):
             "context": {"create": False},
         }
 
+    def _expense_domain(self, date_from, date_to):
+        return [
+            ("company_id", "=", self.env.company.id),
+            ("date", ">=", date_from),
+            ("date", "<=", date_to),
+        ]
+
+    def _expense_total(self, date_from, date_to):
+        groups = self.env["hr.expense"].read_group(
+            self._expense_domain(date_from, date_to),
+            ["total_amount:sum"],
+            [],
+        )
+        return groups[0]["total_amount"] if groups else 0.0
+
     def _expense_action(self, name, date_from, date_to):
         return {
             "type": "ir.actions.act_window",
             "name": name,
             "res_model": "hr.expense",
             "views": [[False, "tree"], [False, "form"]],
-            "domain": [
-                ("company_id", "=", self.env.company.id),
-                ("date", ">=", date_from),
-                ("date", "<=", date_to),
-            ],
+            "domain": self._expense_domain(date_from, date_to),
             "context": {"create": False},
         }
 
