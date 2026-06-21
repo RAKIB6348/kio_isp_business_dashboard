@@ -38,11 +38,13 @@
                     </t>
                 </section>
 
-                <section class="kio-kpi-row secondary">
-                    <t t-foreach="state.data.secondary_kpis" t-as="kpi" t-key="kpi.title">
-                        <t t-call="kio_isp_business_dashboard.KpiCard"/>
-                    </t>
-                </section>
+                <div class="kio-kpi-scroll-wrapper">
+                    <section class="kio-kpi-row secondary kio-kpi-row-scrollable">
+                        <t t-foreach="state.data.secondary_kpis" t-as="kpi" t-key="kpi.title">
+                            <t t-call="kio_isp_business_dashboard.KpiCard"/>
+                        </t>
+                    </section>
+                </div>
 
                 <section class="kio-main-content">
                     <section class="kio-third-row">

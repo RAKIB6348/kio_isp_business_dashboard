@@ -14,20 +14,27 @@ class KioIspBusinessDashboard(models.AbstractModel):
         today = fields.Date.context_today(self)
         date_from = fields.Date.to_date(date_from) if date_from else today.replace(day=1)
         date_to = fields.Date.to_date(date_to) if date_to else today
+
         revenue = max(-self._sum_lines_by_account_type(["income", "income_other"], date_from, date_to), 0.0)
         cogs = max(self._sum_lines_by_account_type(["expense_direct_cost"], date_from, date_to), 0.0)
         operating_expenses = max(self._sum_lines_by_account_type(["expense", "expense_depreciation"], date_from, date_to), 0.0)
         hr_expense_total = self._expense_total(date_from, date_to)
+
         gross_profit = revenue - cogs
         operating_profit = gross_profit - operating_expenses
         other_income = max(-self._sum_lines_by_account_type(["income_other"], date_from, date_to), 0.0)
         net_profit = operating_profit + other_income
+
         collection = self._get_collection(date_from, date_to)
         cash_in_hand = self._journal_balance("cash")
         bank_balance = self._journal_balance("bank")
+        cash_bank_balance = cash_in_hand + bank_balance
+
         receivable = abs(self._sum_lines_by_account_type(["asset_receivable"]))
         payable = abs(self._sum_lines_by_account_type(["liability_payable"]))
-        invoice_total = self.env["account.move"].search_count(self._posted_move_domain(date_from, date_to, ["out_invoice"]))
+        invoice_total = self.env["account.move"].search_count(
+            self._posted_move_domain(date_from, date_to, ["out_invoice"])
+        )
         company = self.env.company
 
         return {
@@ -42,18 +49,100 @@ class KioIspBusinessDashboard(models.AbstractModel):
                 "subtitle": "Real-time summary of your business performance",
             },
             "primary_kpis": [
-                self._kpi("Total Sales", revenue, "+12.6%", "fa-line-chart", "blue", action=self._sale_order_action("Total Sales", date_from, date_to)),
-                self._kpi("Total Collection", collection, "+8.2%", "fa-credit-card", "green", action=self._payment_action("Total Collection", date_from, date_to, "inbound")),
-                self._kpi("Total Invoice", invoice_total, "+4.7%", "fa-file-text-o", "violet", "number", action=self._move_action("Total Invoice", date_from, date_to, ["out_invoice"])),
-                self._kpi("Total Expenses", hr_expense_total, "-3.4%", "fa-shopping-bag", "orange", action=self._expense_action("Total Expenses", date_from, date_to)),
-                self._kpi("Gross Profit", gross_profit, "+10.9%", "fa-pie-chart", "cyan", action=self._move_line_action("Gross Profit", date_from, date_to, ["income", "income_other", "expense_direct_cost"])),
-                self._kpi("Net Profit", net_profit, "+7.8%", "fa-trophy", "red", action=self._move_line_action("Net Profit", date_from, date_to, ["income", "income_other", "expense", "expense_depreciation", "expense_direct_cost"])),
+                self._kpi(
+                    "Total Sales",
+                    revenue,
+                    "+12.6%",
+                    "fa-line-chart",
+                    "blue",
+                    action=self._sale_order_action("Total Sales", date_from, date_to),
+                ),
+                self._kpi(
+                    "Total Collection",
+                    collection,
+                    "+8.2%",
+                    "fa-credit-card",
+                    "green",
+                    action=self._payment_action("Total Collection", date_from, date_to, "inbound"),
+                ),
+                self._kpi(
+                    "Total Invoice",
+                    invoice_total,
+                    "+4.7%",
+                    "fa-file-text-o",
+                    "violet",
+                    "number",
+                    action=self._move_action("Total Invoice", date_from, date_to, ["out_invoice"]),
+                ),
+                self._kpi(
+                    "Total Expenses",
+                    hr_expense_total,
+                    "-3.4%",
+                    "fa-shopping-bag",
+                    "orange",
+                    action=self._expense_action("Total Expenses", date_from, date_to),
+                ),
+                self._kpi(
+                    "Gross Profit",
+                    gross_profit,
+                    "+10.9%",
+                    "fa-pie-chart",
+                    "cyan",
+                    action=self._move_line_action(
+                        "Gross Profit",
+                        date_from,
+                        date_to,
+                        ["income", "income_other", "expense_direct_cost"],
+                    ),
+                ),
+                self._kpi(
+                    "Net Profit",
+                    net_profit,
+                    "+7.8%",
+                    "fa-trophy",
+                    "red",
+                    action=self._move_line_action(
+                        "Net Profit",
+                        date_from,
+                        date_to,
+                        ["income", "income_other", "expense", "expense_depreciation", "expense_direct_cost"],
+                    ),
+                ),
             ],
             "secondary_kpis": [
-                self._kpi("Cash In Hand", cash_in_hand, "Available", "fa-money", "green", action=self._journal_action("Cash In Hand", "cash")),
-                self._kpi("Bank Balance", bank_balance, "Current", "fa-university", "blue", action=self._journal_action("Bank Balance", "bank")),
-                self._kpi("Accounts Receivable", receivable, "Open dues", "fa-user-plus", "violet", action=self._move_line_action("Accounts Receivable", None, None, ["asset_receivable"])),
-                self._kpi("Accounts Payable", payable, "Vendor dues", "fa-user-times", "orange", action=self._move_line_action("Accounts Payable", None, None, ["liability_payable"])),
+                self._kpi(
+                    "Cash In Hand",
+                    cash_in_hand,
+                    "Available",
+                    "fa-money",
+                    "green",
+                    action=self._journal_action("Cash In Hand", "cash"),
+                ),
+                self._kpi(
+                    "Bank Balance",
+                    bank_balance,
+                    "Current",
+                    "fa-university",
+                    "blue",
+                    action=self._journal_action("Bank Balance", "bank"),
+                ),
+            ] + self._cash_bank_journal_kpis() + [
+                self._kpi(
+                    "Accounts Receivable",
+                    receivable,
+                    "Open dues",
+                    "fa-user-plus",
+                    "violet",
+                    action=self._move_line_action("Accounts Receivable", None, None, ["asset_receivable"]),
+                ),
+                self._kpi(
+                    "Accounts Payable",
+                    payable,
+                    "Vendor dues",
+                    "fa-user-times",
+                    "orange",
+                    action=self._move_line_action("Accounts Payable", None, None, ["liability_payable"]),
+                ),
             ],
             "pl_rows": [
                 {"label": "Total Revenue", "amount": revenue, "highlight": False},
@@ -64,7 +153,7 @@ class KioIspBusinessDashboard(models.AbstractModel):
                 {"label": "Other Income", "amount": other_income, "highlight": False},
                 {"label": "Net Profit", "amount": net_profit, "highlight": True},
             ],
-            "cash_flow": self._cash_flow_summary(date_from, date_to, cash_in_hand + bank_balance),
+            "cash_flow": self._cash_flow_summary(date_from, date_to, cash_bank_balance),
             "aged_receivable": self._aged_summary("customer"),
             "aged_payable": self._aged_summary("vendor"),
             "top_due_customers": self._top_due_partners("customer"),
@@ -84,6 +173,50 @@ class KioIspBusinessDashboard(models.AbstractModel):
             "action_key": action_key,
         }
 
+    def _cash_bank_journal_kpis(self):
+        journals = self.env["account.journal"].search([
+            ("company_id", "=", self.env.company.id),
+            ("type", "in", ["cash", "bank"]),
+            ("default_account_id", "!=", False),
+        ], order="type, name")
+
+        kpis = []
+        for journal in journals:
+            is_cash = journal.type == "cash"
+            kpis.append(
+                self._kpi(
+                    journal.name,
+                    self._journal_account_balance(journal.default_account_id.id),
+                    "Cash Journal" if is_cash else "Bank Journal",
+                    "fa-money" if is_cash else "fa-university",
+                    "green" if is_cash else "blue",
+                    action=self._journal_move_line_action(journal),
+                )
+            )
+        return kpis
+
+    def _journal_account_balance(self, account_id):
+        groups = self.env["account.move.line"].read_group([
+            ("parent_state", "=", "posted"),
+            ("company_id", "=", self.env.company.id),
+            ("account_id", "=", account_id),
+        ], ["balance:sum"], [])
+        return groups[0]["balance"] if groups else 0.0
+
+    def _journal_move_line_action(self, journal):
+        return {
+            "type": "ir.actions.act_window",
+            "name": journal.name,
+            "res_model": "account.move.line",
+            "views": [[False, "list"], [False, "form"]],
+            "domain": [
+                ("parent_state", "=", "posted"),
+                ("company_id", "=", self.env.company.id),
+                ("account_id", "=", journal.default_account_id.id),
+            ],
+            "context": {"create": False},
+        }
+
     def _sale_order_action(self, name, date_from, date_to):
         return {
             "type": "ir.actions.act_window",
@@ -99,30 +232,28 @@ class KioIspBusinessDashboard(models.AbstractModel):
         }
 
     def _move_action(self, name, date_from, date_to, move_types):
-        domain = self._posted_move_domain(date_from, date_to, move_types)
         return {
             "type": "ir.actions.act_window",
             "name": name,
             "res_model": "account.move",
             "views": [[False, "list"], [False, "form"]],
-            "domain": domain,
+            "domain": self._posted_move_domain(date_from, date_to, move_types),
             "context": {"create": False},
         }
 
     def _payment_action(self, name, date_from, date_to, payment_type):
-        domain = [
-            ("state", "=", "posted"),
-            ("company_id", "=", self.env.company.id),
-            ("date", ">=", date_from),
-            ("date", "<=", date_to),
-            ("payment_type", "=", payment_type),
-        ]
         return {
             "type": "ir.actions.act_window",
             "name": name,
             "res_model": "account.payment",
             "views": [[False, "list"], [False, "form"]],
-            "domain": domain,
+            "domain": [
+                ("state", "=", "posted"),
+                ("company_id", "=", self.env.company.id),
+                ("date", ">=", date_from),
+                ("date", "<=", date_to),
+                ("payment_type", "=", payment_type),
+            ],
             "context": {"create": False},
         }
 
@@ -161,6 +292,7 @@ class KioIspBusinessDashboard(models.AbstractModel):
             domain.append(("date", ">=", date_from))
         if date_to:
             domain.append(("date", "<=", date_to))
+
         return {
             "type": "ir.actions.act_window",
             "name": name,
@@ -176,7 +308,10 @@ class KioIspBusinessDashboard(models.AbstractModel):
             "name": name,
             "res_model": "account.journal",
             "views": [[False, "list"], [False, "form"]],
-            "domain": [("company_id", "=", self.env.company.id), ("type", "=", journal_type)],
+            "domain": [
+                ("company_id", "=", self.env.company.id),
+                ("type", "=", journal_type),
+            ],
             "context": {"create": False},
         }
 
@@ -200,6 +335,7 @@ class KioIspBusinessDashboard(models.AbstractModel):
             domain.append(("date", ">=", date_from))
         if date_to:
             domain.append(("date", "<=", date_to))
+
         groups = self.env["account.move.line"].read_group(domain, ["balance:sum"], [])
         return groups[0]["balance"] if groups else 0.0
 
@@ -212,11 +348,13 @@ class KioIspBusinessDashboard(models.AbstractModel):
         account_ids = journals.mapped("default_account_id").ids
         if not account_ids:
             return 0.0
+
         groups = self.env["account.move.line"].read_group([
             ("parent_state", "=", "posted"),
             ("company_id", "=", self.env.company.id),
             ("account_id", "in", account_ids),
         ], ["balance:sum"], [])
+
         return groups[0]["balance"] if groups else 0.0
 
     def _get_collection(self, date_from, date_to):
@@ -240,23 +378,31 @@ class KioIspBusinessDashboard(models.AbstractModel):
         ])
         cash_out = sum(vendor_payments.mapped("amount"))
         opening_balance = closing_balance - cash_in + cash_out
-        values = [
+
+        return self._with_ratios([
             {"label": "Opening Balance", "amount": opening_balance, "tone": "blue"},
             {"label": "Cash In", "amount": cash_in, "tone": "green"},
             {"label": "Cash Out", "amount": cash_out, "tone": "orange"},
             {"label": "Closing Balance", "amount": closing_balance, "tone": "violet"},
-        ]
-        return self._with_ratios(values)
+        ])
 
     def _aged_summary(self, partner_type):
         values = self._empty_aged_values()
         move_types = ["out_invoice"] if partner_type == "customer" else ["in_invoice"]
         today = fields.Date.context_today(self)
-        moves = self.env["account.move"].search(self._posted_move_domain(move_type=move_types) + [("payment_state", "in", ["not_paid", "partial"]), ("amount_residual", ">", 0)])
+
+        moves = self.env["account.move"].search(
+            self._posted_move_domain(move_type=move_types) + [
+                ("payment_state", "in", ["not_paid", "partial"]),
+                ("amount_residual", ">", 0),
+            ]
+        )
+
         for move in moves:
             due_date = move.invoice_date_due or move.invoice_date or move.date or today
             days = max((today - due_date).days, 0)
             amount = abs(move.amount_residual_signed or move.amount_residual)
+
             if days <= 30:
                 values[0]["amount"] += amount
             elif days <= 60:
@@ -265,6 +411,7 @@ class KioIspBusinessDashboard(models.AbstractModel):
                 values[2]["amount"] += amount
             else:
                 values[3]["amount"] += amount
+
         return self._with_ratios(values)
 
     def _empty_aged_values(self):
@@ -285,15 +432,31 @@ class KioIspBusinessDashboard(models.AbstractModel):
         move_types = ["out_invoice"] if partner_type == "customer" else ["in_invoice"]
         today = fields.Date.context_today(self)
         totals = {}
-        for move in self.env["account.move"].search(self._posted_move_domain(move_type=move_types) + [("payment_state", "in", ["not_paid", "partial"]), ("amount_residual", ">", 0)], limit=300):
+
+        moves = self.env["account.move"].search(
+            self._posted_move_domain(move_type=move_types) + [
+                ("payment_state", "in", ["not_paid", "partial"]),
+                ("amount_residual", ">", 0),
+            ],
+            limit=300,
+        )
+
+        for move in moves:
             partner = move.partner_id
             if not partner:
                 continue
+
             due_date = move.invoice_date_due or move.invoice_date or move.date or today
             days = max((today - due_date).days, 0)
-            bucket = totals.setdefault(partner.id, {"name": partner.display_name, "amount": 0.0, "days": 0})
+
+            bucket = totals.setdefault(partner.id, {
+                "name": partner.display_name,
+                "amount": 0.0,
+                "days": 0,
+            })
             bucket["amount"] += abs(move.amount_residual_signed or move.amount_residual)
             bucket["days"] = max(bucket["days"], days)
+
         return sorted(totals.values(), key=lambda row: row["amount"], reverse=True)[:5]
 
     def _quick_nav_items(self):

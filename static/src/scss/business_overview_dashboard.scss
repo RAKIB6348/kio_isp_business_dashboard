@@ -1534,3 +1534,54 @@ body.o_kio_business_dashboard_active .kio-date-range {
 .kio-business-dashboard .kio-donut strong {
     font-size: 24px !important;
 }
+
+/* =========================================================
+   SECONDARY KPI HORIZONTAL SCROLL
+========================================================= */
+
+.kio-kpi-scroll-wrapper {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+.kio-kpi-scroll-wrapper::-webkit-scrollbar {
+    height: 7px;
+}
+
+.kio-kpi-scroll-wrapper::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.kio-kpi-scroll-wrapper::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
+}
+
+.kio-kpi-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.kio-kpi-scroll-wrapper .kio-kpi-row.secondary,
+.kio-kpi-scroll-wrapper .kio-kpi-row.secondary.kio-kpi-row-scrollable {
+    display: flex !important;
+    grid-template-columns: unset !important;
+    flex-wrap: nowrap !important;
+    gap: 11px !important;
+    width: max-content;
+    min-width: 100%;
+    margin-bottom: 0 !important;
+}
+
+.kio-kpi-scroll-wrapper .kio-kpi-row.secondary .kio-kpi-card {
+    flex: 0 0 260px !important;
+    width: 260px !important;
+    min-width: 260px !important;
+    max-width: 260px !important;
+    min-height: 109px !important;
+}
