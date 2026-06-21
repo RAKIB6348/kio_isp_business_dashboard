@@ -1494,3 +1494,43 @@ body.o_kio_business_dashboard_active .kio-date-range {
         flex: 1 1 120px;
     }
 }
+
+/* Typography scale increase requested for dashboard XML-rendered text */
+.kio-business-dashboard .kio-header-copy h1 {
+    font-size: 26px !important;
+}
+
+.kio-business-dashboard .kio-header-copy p {
+    font-size: 13px !important;
+}
+
+.kio-business-dashboard .kio-kpi-title,
+.kio-business-dashboard .kio-card-header h2 {
+    font-size: 15px !important;
+}
+
+.kio-business-dashboard .kio-kpi-card strong {
+    font-size: 24px !important;
+}
+
+.kio-business-dashboard .kio-kpi-card a,
+.kio-business-dashboard .kio-card-footer-link,
+.kio-business-dashboard .kio-link-btn {
+    font-size: 13px !important;
+}
+
+.kio-business-dashboard .kio-pl-head,
+.kio-business-dashboard .kio-pl-row,
+.kio-business-dashboard .kio-due-head,
+.kio-business-dashboard .kio-due-row strong,
+.kio-business-dashboard .kio-due-row span,
+.kio-business-dashboard .kio-due-row em,
+.kio-business-dashboard .kio-legend-row strong,
+.kio-business-dashboard .kio-legend-row small,
+.kio-business-dashboard .kio-nav-card {
+    font-size: 13px !important;
+}
+
+.kio-business-dashboard .kio-donut strong {
+    font-size: 24px !important;
+}
