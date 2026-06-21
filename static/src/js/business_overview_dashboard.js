@@ -8,12 +8,45 @@ export class BusinessOverviewDashboard extends Component {
     setup() {
         this.orm = useService("orm");
         this.action = useService("action");
-        this.state = useState({ loading: true, data: {} });
+        this.state = useState({
+            loading: true,
+            data: {},
+            dateFrom: null,
+            dateTo: null,
+        });
 
         onWillStart(async () => {
-            this.state.data = await this.orm.call("kio.isp.business.dashboard", "get_dashboard_data", []);
-            this.state.loading = false;
+            await this.loadDashboardData();
         });
+    }
+
+    async loadDashboardData() {
+        this.state.loading = true;
+        const args = this.state.dateFrom && this.state.dateTo ? [this.state.dateFrom, this.state.dateTo] : [];
+        this.state.data = await this.orm.call("kio.isp.business.dashboard", "get_dashboard_data", args);
+        this.state.dateFrom = this.state.data.period.date_from;
+        this.state.dateTo = this.state.data.period.date_to;
+        this.state.loading = false;
+    }
+
+    updateDateFrom(ev) {
+        this.state.dateFrom = ev.target.value;
+    }
+
+    updateDateTo(ev) {
+        this.state.dateTo = ev.target.value;
+    }
+
+    async applyDateRange() {
+        if (!this.state.dateFrom || !this.state.dateTo) {
+            return;
+        }
+        if (this.state.dateFrom > this.state.dateTo) {
+            const dateFrom = this.state.dateFrom;
+            this.state.dateFrom = this.state.dateTo;
+            this.state.dateTo = dateFrom;
+        }
+        await this.loadDashboardData();
     }
 
     formatCurrency(amount) {

@@ -10,23 +10,24 @@ class KioIspBusinessDashboard(models.AbstractModel):
     _description = "KIO ISP Business Overview Dashboard"
 
     @api.model
-    def get_dashboard_data(self):
+    def get_dashboard_data(self, date_from=None, date_to=None):
         today = fields.Date.context_today(self)
-        date_from = today.replace(day=1)
-        revenue = max(-self._sum_lines_by_account_type(["income", "income_other"], date_from, today), 0.0)
-        cogs = max(self._sum_lines_by_account_type(["expense_direct_cost"], date_from, today), 0.0)
-        operating_expenses = max(self._sum_lines_by_account_type(["expense", "expense_depreciation"], date_from, today), 0.0)
-        hr_expense_total = self._expense_total(date_from, today)
+        date_from = fields.Date.to_date(date_from) if date_from else today.replace(day=1)
+        date_to = fields.Date.to_date(date_to) if date_to else today
+        revenue = max(-self._sum_lines_by_account_type(["income", "income_other"], date_from, date_to), 0.0)
+        cogs = max(self._sum_lines_by_account_type(["expense_direct_cost"], date_from, date_to), 0.0)
+        operating_expenses = max(self._sum_lines_by_account_type(["expense", "expense_depreciation"], date_from, date_to), 0.0)
+        hr_expense_total = self._expense_total(date_from, date_to)
         gross_profit = revenue - cogs
         operating_profit = gross_profit - operating_expenses
-        other_income = max(-self._sum_lines_by_account_type(["income_other"], date_from, today), 0.0)
+        other_income = max(-self._sum_lines_by_account_type(["income_other"], date_from, date_to), 0.0)
         net_profit = operating_profit + other_income
-        collection = self._get_collection(date_from, today)
+        collection = self._get_collection(date_from, date_to)
         cash_in_hand = self._journal_balance("cash")
         bank_balance = self._journal_balance("bank")
         receivable = abs(self._sum_lines_by_account_type(["asset_receivable"]))
         payable = abs(self._sum_lines_by_account_type(["liability_payable"]))
-        invoice_total = self.env["account.move"].search_count(self._posted_move_domain(date_from, today, ["out_invoice"]))
+        invoice_total = self.env["account.move"].search_count(self._posted_move_domain(date_from, date_to, ["out_invoice"]))
         company = self.env.company
 
         return {
@@ -35,16 +36,18 @@ class KioIspBusinessDashboard(models.AbstractModel):
                 "position": company.currency_id.position or "before",
             },
             "period": {
-                "label": date_from.strftime("%b %d") + " - " + today.strftime("%b %d, %Y"),
+                "label": date_from.strftime("%b %d") + " - " + date_to.strftime("%b %d, %Y"),
+                "date_from": date_from.isoformat(),
+                "date_to": date_to.isoformat(),
                 "subtitle": "Real-time summary of your business performance",
             },
             "primary_kpis": [
-                self._kpi("Total Sales", revenue, "+12.6%", "fa-line-chart", "blue", action=self._sale_order_action("Total Sales", date_from, today)),
-                self._kpi("Total Collection", collection, "+8.2%", "fa-credit-card", "green", action=self._payment_action("Total Collection", date_from, today, "inbound")),
-                self._kpi("Total Invoice", invoice_total, "+4.7%", "fa-file-text-o", "violet", "number", action=self._move_action("Total Invoice", date_from, today, ["out_invoice"])),
-                self._kpi("Total Expenses", hr_expense_total, "-3.4%", "fa-shopping-bag", "orange", action=self._expense_action("Total Expenses", date_from, today)),
-                self._kpi("Gross Profit", gross_profit, "+10.9%", "fa-pie-chart", "cyan", action=self._move_line_action("Gross Profit", date_from, today, ["income", "income_other", "expense_direct_cost"])),
-                self._kpi("Net Profit", net_profit, "+7.8%", "fa-trophy", "red", action=self._move_line_action("Net Profit", date_from, today, ["income", "income_other", "expense", "expense_depreciation", "expense_direct_cost"])),
+                self._kpi("Total Sales", revenue, "+12.6%", "fa-line-chart", "blue", action=self._sale_order_action("Total Sales", date_from, date_to)),
+                self._kpi("Total Collection", collection, "+8.2%", "fa-credit-card", "green", action=self._payment_action("Total Collection", date_from, date_to, "inbound")),
+                self._kpi("Total Invoice", invoice_total, "+4.7%", "fa-file-text-o", "violet", "number", action=self._move_action("Total Invoice", date_from, date_to, ["out_invoice"])),
+                self._kpi("Total Expenses", hr_expense_total, "-3.4%", "fa-shopping-bag", "orange", action=self._expense_action("Total Expenses", date_from, date_to)),
+                self._kpi("Gross Profit", gross_profit, "+10.9%", "fa-pie-chart", "cyan", action=self._move_line_action("Gross Profit", date_from, date_to, ["income", "income_other", "expense_direct_cost"])),
+                self._kpi("Net Profit", net_profit, "+7.8%", "fa-trophy", "red", action=self._move_line_action("Net Profit", date_from, date_to, ["income", "income_other", "expense", "expense_depreciation", "expense_direct_cost"])),
             ],
             "secondary_kpis": [
                 self._kpi("Cash In Hand", cash_in_hand, "Available", "fa-money", "green", action=self._journal_action("Cash In Hand", "cash")),
@@ -61,7 +64,7 @@ class KioIspBusinessDashboard(models.AbstractModel):
                 {"label": "Other Income", "amount": other_income, "highlight": False},
                 {"label": "Net Profit", "amount": net_profit, "highlight": True},
             ],
-            "cash_flow": self._cash_flow_summary(date_from, today, cash_in_hand + bank_balance),
+            "cash_flow": self._cash_flow_summary(date_from, date_to, cash_in_hand + bank_balance),
             "aged_receivable": self._aged_summary("customer"),
             "aged_payable": self._aged_summary("vendor"),
             "top_due_customers": self._top_due_partners("customer"),

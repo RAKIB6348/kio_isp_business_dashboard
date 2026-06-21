@@ -1418,3 +1418,79 @@
 .kio-kpi-card:hover {
     border-color: color-mix(in srgb, var(--kio-tone) 28%, #dfe6ef) !important;
 }
+
+
+.kio-date-range {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 36px;
+    min-height: 36px;
+    padding: 0 8px 0 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #fff;
+    color: #182235;
+    box-shadow: none;
+    white-space: nowrap;
+}
+
+.kio-date-range > i {
+    color: #334155;
+    font-size: 12px;
+}
+
+.kio-date-range input {
+    width: 118px;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #111827;
+    font-size: 12px;
+    font-weight: 750;
+    line-height: 1;
+}
+
+.kio-date-range span {
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.kio-date-range button {
+    display: grid;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    border: 0;
+    border-radius: 5px;
+    background: #eef6ff;
+    color: #006ee6;
+    font-size: 11px;
+    transition: background .18s ease, color .18s ease, transform .18s ease;
+}
+
+.kio-date-range button:hover {
+    background: #006ee6;
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+body.o_kio_business_dashboard_active .kio-date-range {
+    height: 36px !important;
+    min-height: 36px !important;
+}
+
+@media (max-width: 760px) {
+    .kio-date-range {
+        width: 100%;
+        flex-wrap: wrap;
+        height: auto;
+        padding: 8px 10px;
+    }
+
+    .kio-date-range input {
+        flex: 1 1 120px;
+    }
+}

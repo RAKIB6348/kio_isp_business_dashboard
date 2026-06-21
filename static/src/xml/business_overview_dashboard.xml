@@ -15,9 +15,15 @@
                         </div>
                     </div>
                     <div class="kio-header-actions">
-                        <button class="kio-control date" type="button"><i class="fa fa-calendar"/> <span t-esc="state.data.period.label"/><i class="fa fa-angle-down"/></button>
-                        <button class="kio-control" type="button"><i class="fa fa-filter"/> Filters</button>
-                        <button class="kio-bell" type="button"><i class="fa fa-bell-o"/><span>0</span></button>
+                        <form class="kio-date-range" t-on-submit.prevent="applyDateRange">
+                            <i class="fa fa-calendar"/>
+                            <input type="date" t-att-value="state.dateFrom" t-on-change="updateDateFrom"/>
+                            <span>-</span>
+                            <input type="date" t-att-value="state.dateTo" t-on-change="updateDateTo"/>
+                            <button type="submit" title="Apply Date Range"><i class="fa fa-check"/></button>
+                        </form>
+                        <!-- <button class="kio-control" type="button"><i class="fa fa-filter"/> Filters</button> -->
+                        <!-- <button class="kio-bell" type="button"><i class="fa fa-bell-o"/><span>0</span></button> -->
                         <button class="kio-control primary" type="button"><i class="fa fa-download"/> Export</button>
                         <div class="kio-profile">
                             <div><strong>Owner</strong><small>Super Admin</small></div>
