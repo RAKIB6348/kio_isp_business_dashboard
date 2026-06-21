@@ -132,12 +132,20 @@
     </t>
 
     <!-- KPI CARD -->
+    <!-- KPI CARD -->
     <t t-name="kio_isp_business_dashboard.KpiCard">
-        <article class="kio-kpi-card kio-tone-{{ kpi.tone }}"
-                 t-on-click="() => this.openKpiAction(kpi)">
+        <article t-attf-class="kio-kpi-card kio-tone-{{ kpi.tone }}"
+                t-on-click="() => this.openKpiAction(kpi)">
 
-            <span t-esc="kpi.title"/>
+            <div class="kio-kpi-top">
+                <div class="kio-kpi-icon">
+                    <i t-attf-class="fa {{ kpi.icon }}"/>
+                </div>
+            </div>
+
+            <div class="kio-kpi-title" t-esc="kpi.title"/>
             <strong t-esc="formatMetric(kpi)"/>
+            <a href="#">View Details</a>
 
         </article>
     </t>
