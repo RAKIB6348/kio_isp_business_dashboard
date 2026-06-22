@@ -17,6 +17,7 @@ class KioIspBusinessDashboard(models.AbstractModel):
 
         revenue = max(-self._sum_lines_by_account_type(["income", "income_other"], date_from, date_to), 0.0)
         total_sales = self._invoice_total_amount(date_from, date_to)
+        total_upstream_bill = self._vendor_bill_total_amount(date_from, date_to)
         cogs = max(self._sum_lines_by_account_type(["expense_direct_cost"], date_from, date_to), 0.0)
         operating_expenses = max(self._sum_lines_by_account_type(["expense", "expense_depreciation"], date_from, date_to), 0.0)
         hr_expense_total = self._expense_total(date_from, date_to)
@@ -76,6 +77,14 @@ class KioIspBusinessDashboard(models.AbstractModel):
                 #     action=self._move_action("Total Invoice", date_from, date_to, ["out_invoice"]),
                 # ),
                 self._kpi(
+                    "Total Upstream Bill",
+                    total_upstream_bill,
+                    "+0.0%",
+                    "fa-file-text-o",
+                    "violet",
+                    action=self._vendor_bill_action("Total Upstream Bill", date_from, date_to),
+                ),
+                self._kpi(
                     "Total Expenses",
                     hr_expense_total,
                     "-3.4%",
@@ -89,12 +98,7 @@ class KioIspBusinessDashboard(models.AbstractModel):
                     "+10.9%",
                     "fa-pie-chart",
                     "cyan",
-                    action=self._move_line_action(
-                        "Gross Profit",
-                        date_from,
-                        date_to,
-                        ["income", "income_other", "expense_direct_cost"],
-                    ),
+                    action=self._profit_loss_report_action(),
                 ),
                 self._kpi(
                     "Net Profit",
@@ -102,12 +106,7 @@ class KioIspBusinessDashboard(models.AbstractModel):
                     "+7.8%",
                     "fa-trophy",
                     "red",
-                    action=self._move_line_action(
-                        "Net Profit",
-                        date_from,
-                        date_to,
-                        ["income", "income_other", "expense", "expense_depreciation", "expense_direct_cost"],
-                    ),
+                    action=self._profit_loss_report_action(),
                 ),
             ],
             "secondary_kpis": [
@@ -265,6 +264,31 @@ class KioIspBusinessDashboard(models.AbstractModel):
             [],
         )
         return groups[0]["amount_total_signed"] if groups else 0.0
+
+    def _vendor_bill_total_amount(self, date_from, date_to):
+        groups = self.env["account.move"].read_group(
+            self._posted_move_domain(date_from, date_to, ["in_invoice"]),
+            ["amount_total_signed:sum"],
+            [],
+        )
+        return abs(groups[0]["amount_total_signed"]) if groups else 0.0
+
+    def _vendor_bill_action(self, name, date_from, date_to):
+        return {
+            "type": "ir.actions.act_window",
+            "name": name,
+            "res_model": "account.move",
+            "views": [[False, "list"], [False, "form"]],
+            "domain": self._posted_move_domain(date_from, date_to, ["in_invoice"]),
+            "context": {"create": False},
+        }
+
+    def _profit_loss_report_action(self):
+        action = self.env["ir.actions.actions"]._for_xml_id(
+            "kio_account_reports.action_account_report_pl"
+        )
+        action["target"] = "current"
+        return action
 
     def _expense_domain(self, date_from, date_to):
         return [
