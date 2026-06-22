@@ -204,6 +204,19 @@ export class BusinessOverviewDashboard extends Component {
         this.action.doAction("kio_account_reports.action_account_report_cs");
     }
 
+    openQuickNav(nav) {
+        if (!nav?.action) {
+            return;
+        }
+
+        this.action.doAction(nav.action, {
+            additionalContext: {
+                from_business_dashboard: true,
+                business_dashboard_action: "kio_isp_business_dashboard.action_kio_isp_business_dashboard",
+            },
+        });
+    }
+
     // ================= QUICK ACTIONS =================
     openInvoices() {
         this.action.doAction("account.action_move_out_invoice_type");

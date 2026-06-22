@@ -131,6 +131,7 @@
                                     t-as="nav"
                                     t-key="nav.label"
                                     t-attf-class="kio-nav-card kio-tone-{{ nav.tone }}"
+                                    t-on-click="() => this.openQuickNav(nav)"
                                     type="button">
 
                                 <i t-attf-class="fa {{ nav.icon }}"/>

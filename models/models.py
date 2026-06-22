@@ -506,7 +506,7 @@ class KioIspBusinessDashboard(models.AbstractModel):
 
     def _quick_nav_items(self):
         return [
-            {"label": "Accounting", "icon": "fa-calculator", "tone": "blue"},
+            {"label": "Accounting", "icon": "fa-calculator", "tone": "blue", "action": "kio_isp_management.action_isp_account_dashboard_client"},
             {"label": "CRM", "icon": "fa-users", "tone": "green"},
             {"label": "Sales", "icon": "fa-shopping-cart", "tone": "orange"},
             {"label": "Billing", "icon": "fa-file-text-o", "tone": "violet"},
