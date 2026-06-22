@@ -16,8 +16,20 @@
                         <span class="kio-app-mark"><i/><i/><i/><i/></span>
                         <div class="kio-header-copy">
                             <h1>Business Overview</h1>
-                            <p t-esc="state.data.period.subtitle"/>
+                            <p t-esc="state.data.period.label"/>
                         </div>
+                    </div>
+                    <div class="kio-header-actions kio-date-filter" aria-label="Date range filter">
+                        <div class="kio-date-field">
+                            <label class="kio-date-label" for="business_date_from">Start Date</label>
+                            <input id="business_date_from" type="date" class="form-control form-control-sm kio-date-input" t-att-value="state.dateFrom" t-on-change="(ev) => this.onDateFromChange(ev)"/>
+                        </div>
+                        <div class="kio-date-field">
+                            <label class="kio-date-label" for="business_date_to">End Date</label>
+                            <input id="business_date_to" type="date" class="form-control form-control-sm kio-date-input" t-att-value="state.dateTo" t-on-change="(ev) => this.onDateToChange(ev)"/>
+                        </div>
+                        <button type="button" class="btn btn-primary btn-sm kio-date-btn" t-on-click="() => this.applyDateFilter()">Apply</button>
+                        <button type="button" class="btn btn-light btn-sm kio-date-btn" t-on-click="() => this.clearDateFilter()">Clear</button>
                     </div>
                 </section>
 

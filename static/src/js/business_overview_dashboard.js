@@ -4,16 +4,20 @@ import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { Component, onWillStart, useState } from "@odoo/owl";
 
+const DATE_RANGE_STORAGE_KEY = "kio_isp_business_dashboard_date_range";
+
 export class BusinessOverviewDashboard extends Component {
     setup() {
         this.orm = useService("orm");
         this.action = useService("action");
 
+        const dateRange = this.getStoredDateRange() || this.getCurrentMonthRange();
+
         this.state = useState({
             loading: true,
             data: {},
-            dateFrom: null,
-            dateTo: null,
+            dateFrom: dateRange.dateFrom,
+            dateTo: dateRange.dateTo,
         });
 
         onWillStart(async () => {
@@ -38,21 +42,71 @@ export class BusinessOverviewDashboard extends Component {
 
         this.state.dateFrom = this.state.data.period.date_from;
         this.state.dateTo = this.state.data.period.date_to;
+        this.persistDateRange();
 
         this.state.loading = false;
     }
 
+    getCurrentMonthRange() {
+        const today = new Date();
+        const formatDate = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, "0");
+            const day = String(date.getDate()).padStart(2, "0");
+            return `${year}-${month}-${day}`;
+        };
+
+        return {
+            dateFrom: formatDate(new Date(today.getFullYear(), today.getMonth(), 1)),
+            dateTo: formatDate(today),
+        };
+    }
+
+    getStoredDateRange() {
+        const savedRange = localStorage.getItem(DATE_RANGE_STORAGE_KEY);
+        if (!savedRange) {
+            return null;
+        }
+
+        try {
+            const range = JSON.parse(savedRange);
+            if (!range.dateFrom || !range.dateTo) {
+                return null;
+            }
+            return range;
+        } catch (error) {
+            localStorage.removeItem(DATE_RANGE_STORAGE_KEY);
+            return null;
+        }
+    }
+
+    persistDateRange() {
+        if (!this.state.dateFrom || !this.state.dateTo) {
+            return;
+        }
+
+        localStorage.setItem(
+            DATE_RANGE_STORAGE_KEY,
+            JSON.stringify({
+                dateFrom: this.state.dateFrom,
+                dateTo: this.state.dateTo,
+            })
+        );
+    }
+
     // ================= DATE FILTER =================
-    updateDateFrom(ev) {
+    onDateFromChange(ev) {
         this.state.dateFrom = ev.target.value;
     }
 
-    updateDateTo(ev) {
+    onDateToChange(ev) {
         this.state.dateTo = ev.target.value;
     }
 
-    async applyDateRange() {
-        if (!this.state.dateFrom || !this.state.dateTo) return;
+    async applyDateFilter() {
+        if (!this.state.dateFrom || !this.state.dateTo) {
+            return;
+        }
 
         if (this.state.dateFrom > this.state.dateTo) {
             const temp = this.state.dateFrom;
@@ -60,7 +114,28 @@ export class BusinessOverviewDashboard extends Component {
             this.state.dateTo = temp;
         }
 
+        this.persistDateRange();
         await this.loadDashboardData();
+    }
+
+    async clearDateFilter() {
+        const currentMonthRange = this.getCurrentMonthRange();
+        this.state.dateFrom = currentMonthRange.dateFrom;
+        this.state.dateTo = currentMonthRange.dateTo;
+        this.persistDateRange();
+        await this.loadDashboardData();
+    }
+
+    updateDateFrom(ev) {
+        this.onDateFromChange(ev);
+    }
+
+    updateDateTo(ev) {
+        this.onDateToChange(ev);
+    }
+
+    async applyDateRange() {
+        await this.applyDateFilter();
     }
 
     // ================= FORMAT HELPERS =================

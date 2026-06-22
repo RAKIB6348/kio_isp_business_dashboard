@@ -81,6 +81,43 @@
     flex: 0 0 auto;
 }
 
+.kio-date-filter {
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.kio-date-field {
+    display: grid;
+    gap: 3px;
+}
+
+.kio-date-label {
+    margin: 0;
+    color: #64748b;
+    font-size: 10px;
+    line-height: 1.1;
+    font-weight: 800;
+}
+
+.kio-date-input {
+    min-height: 32px;
+    min-width: 138px;
+    border-color: #e2e8f0;
+    border-radius: 9px;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 700;
+    box-shadow: 0 7px 16px rgba(15, 23, 42, 0.035);
+}
+
+.kio-date-btn {
+    align-self: end;
+    min-height: 32px;
+    border-radius: 9px;
+    font-size: 12px;
+    font-weight: 800;
+}
+
 .kio-control,
 .kio-link-btn {
     display: inline-flex;

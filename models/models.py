@@ -28,12 +28,12 @@ class KioIspBusinessDashboard(models.AbstractModel):
         net_profit = operating_profit + other_income
 
         collection = self._get_collection(date_from, date_to)
-        cash_in_hand = self._journal_balance("cash")
-        bank_balance = self._journal_balance("bank")
+        cash_in_hand = self._journal_balance("cash", date_from, date_to)
+        bank_balance = self._journal_balance("bank", date_from, date_to)
         cash_bank_balance = cash_in_hand + bank_balance
 
-        receivable = abs(self._sum_lines_by_account_type(["asset_receivable"]))
-        payable = abs(self._sum_lines_by_account_type(["liability_payable"]))
+        receivable = abs(self._sum_lines_by_account_type(["asset_receivable"], date_from, date_to))
+        payable = abs(self._sum_lines_by_account_type(["liability_payable"], date_from, date_to))
         invoice_total = self.env["account.move"].search_count(
             self._posted_move_domain(date_from, date_to, ["out_invoice"])
         )
@@ -126,7 +126,7 @@ class KioIspBusinessDashboard(models.AbstractModel):
                 #     "blue",
                 #     action=self._journal_action("Bank Balance", "bank"),
                 # ),
-            ] + self._cash_bank_journal_kpis() + [
+            ] + self._cash_bank_journal_kpis(date_from, date_to) + [
                 self._kpi(
                     "Accounts Receivable",
                     receivable,
@@ -154,10 +154,10 @@ class KioIspBusinessDashboard(models.AbstractModel):
                 {"label": "Net Profit", "amount": net_profit, "highlight": True},
             ],
             "cash_flow": self._cash_flow_summary(date_from, date_to, cash_bank_balance),
-            "aged_receivable": self._aged_summary("customer"),
-            "aged_payable": self._aged_summary("vendor"),
-            "top_due_customers": self._top_due_partners("customer"),
-            "top_due_vendors": self._top_due_partners("vendor"),
+            "aged_receivable": self._aged_summary("customer", date_from, date_to),
+            "aged_payable": self._aged_summary("vendor", date_from, date_to),
+            "top_due_customers": self._top_due_partners("customer", date_from, date_to),
+            "top_due_vendors": self._top_due_partners("vendor", date_from, date_to),
             "quick_nav": self._quick_nav_items(),
         }
 
@@ -173,7 +173,7 @@ class KioIspBusinessDashboard(models.AbstractModel):
             "action_key": action_key,
         }
 
-    def _cash_bank_journal_kpis(self):
+    def _cash_bank_journal_kpis(self, date_from=None, date_to=None):
         journals = self.env["account.journal"].search([
             ("company_id", "=", self.env.company.id),
             ("type", "in", ["cash", "bank"]),
@@ -186,7 +186,7 @@ class KioIspBusinessDashboard(models.AbstractModel):
             kpis.append(
                 self._kpi(
                     journal.name,
-                    self._journal_account_balance(journal.default_account_id.id),
+                    self._journal_account_balance(journal.default_account_id.id, date_from, date_to),
                     "Cash Journal" if is_cash else "Bank Journal",
                     "fa-money" if is_cash else "fa-university",
                     "green" if is_cash else "blue",
@@ -195,12 +195,18 @@ class KioIspBusinessDashboard(models.AbstractModel):
             )
         return kpis
 
-    def _journal_account_balance(self, account_id):
-        groups = self.env["account.move.line"].read_group([
+    def _journal_account_balance(self, account_id, date_from=None, date_to=None):
+        domain = [
             ("parent_state", "=", "posted"),
             ("company_id", "=", self.env.company.id),
             ("account_id", "=", account_id),
-        ], ["balance:sum"], [])
+        ]
+        if date_from:
+            domain.append(("date", ">=", date_from))
+        if date_to:
+            domain.append(("date", "<=", date_to))
+
+        groups = self.env["account.move.line"].read_group(domain, ["balance:sum"], [])
         return groups[0]["balance"] if groups else 0.0
 
     def _journal_move_line_action(self, journal):
@@ -372,7 +378,7 @@ class KioIspBusinessDashboard(models.AbstractModel):
         groups = self.env["account.move.line"].read_group(domain, ["balance:sum"], [])
         return groups[0]["balance"] if groups else 0.0
 
-    def _journal_balance(self, journal_type):
+    def _journal_balance(self, journal_type, date_from=None, date_to=None):
         journals = self.env["account.journal"].search([
             ("company_id", "=", self.env.company.id),
             ("type", "=", journal_type),
@@ -382,11 +388,17 @@ class KioIspBusinessDashboard(models.AbstractModel):
         if not account_ids:
             return 0.0
 
-        groups = self.env["account.move.line"].read_group([
+        domain = [
             ("parent_state", "=", "posted"),
             ("company_id", "=", self.env.company.id),
             ("account_id", "in", account_ids),
-        ], ["balance:sum"], [])
+        ]
+        if date_from:
+            domain.append(("date", ">=", date_from))
+        if date_to:
+            domain.append(("date", "<=", date_to))
+
+        groups = self.env["account.move.line"].read_group(domain, ["balance:sum"], [])
 
         return groups[0]["balance"] if groups else 0.0
 
@@ -419,13 +431,13 @@ class KioIspBusinessDashboard(models.AbstractModel):
             {"label": "Closing Balance", "amount": closing_balance, "tone": "violet"},
         ])
 
-    def _aged_summary(self, partner_type):
+    def _aged_summary(self, partner_type, date_from=None, date_to=None):
         values = self._empty_aged_values()
         move_types = ["out_invoice"] if partner_type == "customer" else ["in_invoice"]
         today = fields.Date.context_today(self)
 
         moves = self.env["account.move"].search(
-            self._posted_move_domain(move_type=move_types) + [
+            self._posted_move_domain(date_from, date_to, move_types) + [
                 ("payment_state", "in", ["not_paid", "partial"]),
                 ("amount_residual", ">", 0),
             ]
@@ -461,13 +473,13 @@ class KioIspBusinessDashboard(models.AbstractModel):
             item["ratio"] = round((item["amount"] / total) * 100, 2)
         return values
 
-    def _top_due_partners(self, partner_type):
+    def _top_due_partners(self, partner_type, date_from=None, date_to=None):
         move_types = ["out_invoice"] if partner_type == "customer" else ["in_invoice"]
         today = fields.Date.context_today(self)
         totals = {}
 
         moves = self.env["account.move"].search(
-            self._posted_move_domain(move_type=move_types) + [
+            self._posted_move_domain(date_from, date_to, move_types) + [
                 ("payment_state", "in", ["not_paid", "partial"]),
                 ("amount_residual", ">", 0),
             ],
