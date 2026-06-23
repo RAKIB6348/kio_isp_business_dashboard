@@ -7,5 +7,6 @@
     <menuitem id="menu_kio_isp_business_dashboard_root"
               name="Business Overview"
               sequence="35"
-              action="action_kio_isp_business_dashboard"/>
+              action="action_kio_isp_business_dashboard"
+              web_icon="kio_isp_business_dashboard,static/description/icon.png"/>
 </odoo>
