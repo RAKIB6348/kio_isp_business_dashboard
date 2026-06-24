@@ -24,7 +24,7 @@ Long description of module's purpose
         'sale',
         'hr_expense',
         'kio_isp_management',
-        'kio_online_isp_management',
+        # 'kio_online_isp_management',
         'kio_account_accountant',
         'kio_account_reports',
         'kio_owner_equity',
