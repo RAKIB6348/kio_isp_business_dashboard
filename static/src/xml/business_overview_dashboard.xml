@@ -147,6 +147,373 @@
         </div>
     </t>
 
+    <t t-name="kio_isp_business_dashboard.OperationOverviewDashboard">
+        <div class="kio-business-dashboard kio-operation-dashboard">
+
+            <t t-if="state.loading">
+                <div class="kio-dashboard-loading">Loading operation overview...</div>
+            </t>
+
+            <t t-else="">
+                <section class="kio-dashboard-header">
+                    <div class="kio-brand-block">
+                        <span class="kio-app-mark"><i/><i/><i/><i/></span>
+                        <div class="kio-header-copy">
+                            <div class="kio-operation-title-row">
+                                <h1>Operation Overview</h1>
+                                <button type="button" class="kio-operation-back-btn" t-on-click="() => this.goBackToBusinessOverview()">
+                                    <i class="fa fa-arrow-left"/>
+                                    <span>Back</span>
+                                </button>
+                            </div>
+                            <p>ISP Operations Dashboard</p>
+                        </div>
+                    </div>
+                    <div class="kio-header-actions kio-date-filter" aria-label="Date range filter">
+                        <div class="kio-date-field">
+                            <label class="kio-date-label" for="operation_date_from">Start Date</label>
+                            <input id="operation_date_from" type="date" class="form-control form-control-sm kio-date-input" t-att-value="state.dateFrom" t-on-change="(ev) => this.onDateFromChange(ev)"/>
+                        </div>
+                        <div class="kio-date-field">
+                            <label class="kio-date-label" for="operation_date_to">End Date</label>
+                            <input id="operation_date_to" type="date" class="form-control form-control-sm kio-date-input" t-att-value="state.dateTo" t-on-change="(ev) => this.onDateToChange(ev)"/>
+                        </div>
+                        <button type="button" class="btn btn-primary btn-sm kio-date-btn" t-on-click="() => this.applyDateFilter()">Apply</button>
+                        <button type="button" class="btn btn-light btn-sm kio-date-btn" t-on-click="() => this.clearDateFilter()">Clear</button>
+                    </div>
+                </section>
+
+                <section class="kio-kpi-row primary">
+                    <t t-foreach="state.data.summary_kpis" t-as="kpi" t-key="kpi.title">
+                        <article t-attf-class="kio-kpi-card kio-tone-{{ kpi.tone }}" t-on-click="() => this.openAction(kpi.action)">
+                            <div class="kio-kpi-top">
+                                <div class="kio-kpi-icon">
+                                    <i t-attf-class="fa {{ kpi.icon }}"/>
+                                </div>
+                            </div>
+                            <div class="kio-kpi-title" t-esc="kpi.title"/>
+                            <strong t-esc="formatMetric(kpi)"/>
+                            <a href="#">View Details</a>
+                        </article>
+                    </t>
+                </section>
+
+                <section class="kio-card kio-operation-pipeline-card">
+                    <div class="kio-card-header compact">
+                        <h2>Lead Pipeline Overview</h2>
+                    </div>
+                    <div class="kio-operation-pipeline">
+                        <t t-foreach="state.data.pipeline_stages" t-as="stage" t-key="stage.key">
+                            <article t-attf-class="kio-operation-stage kio-tone-{{ stage.tone }}" t-on-click="() => this.openAction(stage.action)">
+                                <div class="kio-stage-title-row">
+                                    <span class="kio-stage-icon"><i t-attf-class="fa {{ stage.icon }}"/></span>
+                                    <strong t-esc="stage.label"/>
+                                </div>
+                                <small>Total Leads</small>
+                                <h3 t-esc="formatNumber(stage.total)"/>
+                                <div class="kio-stage-metrics">
+                                    <div><span class="kio-dot kio-tone-green"/>Confirmed <b><t t-esc="formatNumber(stage.confirmed)"/> (<t t-esc="formatPercent(stage.confirmed_ratio)"/>)</b></div>
+                                    <div><span class="kio-dot kio-tone-orange"/>Pending <b><t t-esc="formatNumber(stage.pending)"/> (<t t-esc="formatPercent(stage.pending_ratio)"/>)</b></div>
+                                    <div><span class="kio-dot kio-tone-red"/>Rejected <b><t t-esc="formatNumber(stage.rejected)"/> (<t t-esc="formatPercent(stage.rejected_ratio)"/>)</b></div>
+                                </div>
+                                <a href="#">View Details</a>
+                            </article>
+                        </t>
+                    </div>
+                </section>
+
+                <section class="kio-operation-analytics-row">
+                    <article class="kio-card kio-operation-donut-card">
+                        <div class="kio-card-header compact"><h2>Lead Status Distribution</h2></div>
+                        <div class="kio-operation-donut-body">
+                            <div class="kio-operation-donut" t-att-style="donutStyle(state.data.status_distribution)">
+                                <div>
+                                    <strong t-esc="formatNumber(state.data.pipeline_stages[0] ? state.data.pipeline_stages[0].total : 0)"/>
+                                    <span>Total Leads</span>
+                                </div>
+                            </div>
+                            <div class="kio-legend-list">
+                                <div t-foreach="state.data.status_distribution" t-as="item" t-key="item.label">
+                                    <span t-attf-class="kio-dot kio-tone-{{ item.tone }}"/>
+                                    <div><strong t-esc="item.label"/><small><t t-esc="formatNumber(item.value)"/> (<t t-esc="formatPercent(item.ratio)"/>)</small></div>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="kio-card kio-operation-bar-card">
+                        <div class="kio-card-header compact"><h2>Stage-wise Conversion Rate</h2></div>
+                        <div class="kio-operation-bars">
+                            <div t-foreach="state.data.pipeline_stages" t-as="stage" t-key="stage.key" class="kio-operation-bar-item">
+                                <span class="kio-bar-value" t-esc="formatPercent(stage.conversion)"/>
+                                <div class="kio-bar-track"><span t-att-style="barHeight(stage)"/></div>
+                                <small t-esc="stage.label"/>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="kio-card kio-operation-donut-card">
+                        <div class="kio-card-header compact"><h2>Leads by Source</h2></div>
+                        <div class="kio-operation-donut-body">
+                            <div class="kio-operation-donut" t-att-style="donutStyle(state.data.source_distribution)">
+                                <div>
+                                    <strong t-esc="formatNumber(state.data.pipeline_stages[0] ? state.data.pipeline_stages[0].total : 0)"/>
+                                    <span>Total Leads</span>
+                                </div>
+                            </div>
+                            <div class="kio-legend-list">
+                                <div t-foreach="state.data.source_distribution" t-as="item" t-key="item.label">
+                                    <span t-attf-class="kio-dot kio-tone-{{ item.tone }}"/>
+                                    <div><strong t-esc="item.label"/><small><t t-esc="formatNumber(item.value)"/> (<t t-esc="formatPercent(item.ratio)"/>)</small></div>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="kio-card kio-operation-donut-card">
+                        <div class="kio-card-header compact"><h2>Lead Aging (Pending)</h2></div>
+                        <div class="kio-operation-donut-body">
+                            <div class="kio-operation-donut" t-att-style="donutStyle(state.data.lead_aging)">
+                                <div>
+                                    <strong t-esc="formatNumber(state.data.pending_total)"/>
+                                    <span>Pending Leads</span>
+                                </div>
+                            </div>
+                            <div class="kio-legend-list">
+                                <div t-foreach="state.data.lead_aging" t-as="item" t-key="item.label">
+                                    <span t-attf-class="kio-dot kio-tone-{{ item.tone }}"/>
+                                    <div><strong t-esc="item.label"/><small><t t-esc="formatNumber(item.value)"/> (<t t-esc="formatPercent(item.ratio)"/>)</small></div>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                </section>
+
+                <section class="kio-operation-bottom-row">
+                    <article class="kio-card kio-operation-table-card">
+                        <div class="kio-card-header compact"><h2>Recent Leads</h2></div>
+                        <div class="kio-operation-table">
+                            <div class="kio-operation-table-head">
+                                <span>Lead ID</span><span>Customer Name</span><span>Source</span><span>Current Stage</span><span>Status</span><span>Date</span>
+                            </div>
+                            <div t-foreach="state.data.recent_leads" t-as="lead" t-key="lead.id" class="kio-operation-table-row">
+                                <strong t-esc="lead.id"/>
+                                <span t-esc="lead.customer"/>
+                                <span t-esc="lead.source"/>
+                                <span t-esc="lead.stage"/>
+                                <span t-attf-class="kio-status-pill {{ lead.status == 'Confirmed' ? 'confirmed' : 'pending' }}" t-esc="lead.status"/>
+                                <span t-esc="lead.date"/>
+                            </div>
+                            <div t-if="!state.data.recent_leads.length" class="kio-empty-state">No recent leads found</div>
+                        </div>
+                    </article>
+
+                    <article class="kio-card kio-operation-table-card">
+                        <div class="kio-card-header compact"><h2>Stage Transition Summary</h2></div>
+                        <div class="kio-operation-table compact-table">
+                            <div class="kio-operation-table-head">
+                                <span>Stage</span><span>Total Entered</span><span>Confirmed</span><span>Pending</span><span>Rejected</span>
+                            </div>
+                            <div t-foreach="state.data.transition_summary" t-as="stage" t-key="stage.key" class="kio-operation-table-row">
+                                <strong t-esc="stage.label"/>
+                                <span t-esc="formatNumber(stage.total)"/>
+                                <span t-esc="formatNumber(stage.confirmed)"/>
+                                <span t-esc="formatNumber(stage.pending)"/>
+                                <span t-esc="formatNumber(stage.rejected)"/>
+                            </div>
+                        </div>
+                    </article>
+
+                    <aside class="kio-quick-nav kio-card">
+                        <div class="kio-card-header compact"><h2>Quick Navigation</h2></div>
+                        <div class="kio-nav-grid operation-nav-grid">
+                            <button t-foreach="state.data.quick_nav" t-as="nav" t-key="nav.label" t-attf-class="kio-nav-card kio-tone-{{ nav.tone }}" t-on-click="() => this.openQuickNav(nav)" type="button">
+                                <i t-attf-class="fa {{ nav.icon }}"/>
+                                <span t-esc="nav.label"/>
+                            </button>
+                        </div>
+                    </aside>
+                </section>
+            </t>
+        </div>
+    </t>
+
+    <t t-name="kio_isp_business_dashboard.ReportsDashboard">
+        <div class="kio-business-dashboard kio-reports-dashboard">
+            <t t-if="state.loading">
+                <div class="kio-dashboard-loading">Loading reports dashboard...</div>
+            </t>
+
+            <t t-else="">
+                <section class="kio-dashboard-header">
+                    <div class="kio-brand-block">
+                        <span class="kio-app-mark"><i/><i/><i/><i/></span>
+                        <div class="kio-header-copy">
+                            <div class="kio-operation-title-row">
+                                <h1>Reports Dashboard</h1>
+                                <button type="button" class="kio-operation-back-btn" t-on-click="() => this.goBackToOperationOverview()">
+                                    <i class="fa fa-arrow-left"/>
+                                    <span>Back</span>
+                                </button>
+                            </div>
+                            <p>ISP Operations &amp; Financial Performance Dashboard</p>
+                        </div>
+                    </div>
+                    <div class="kio-header-actions kio-date-filter" aria-label="Date range filter">
+                        <div class="kio-date-field">
+                            <label class="kio-date-label" for="reports_date_from">Start Date</label>
+                            <input id="reports_date_from" type="date" class="form-control form-control-sm kio-date-input" t-att-value="state.dateFrom" t-on-change="(ev) => this.onDateFromChange(ev)"/>
+                        </div>
+                        <div class="kio-date-field">
+                            <label class="kio-date-label" for="reports_date_to">End Date</label>
+                            <input id="reports_date_to" type="date" class="form-control form-control-sm kio-date-input" t-att-value="state.dateTo" t-on-change="(ev) => this.onDateToChange(ev)"/>
+                        </div>
+                        <button type="button" class="btn btn-primary btn-sm kio-date-btn" t-on-click="() => this.applyDateFilter()">Apply</button>
+                        <button type="button" class="btn btn-light btn-sm kio-date-btn" t-on-click="() => this.clearDateFilter()">Clear</button>
+                    </div>
+                </section>
+
+                <section class="kio-report-grid top">
+                    <t t-set="chartTitle" t-value="'Profit &amp; Loss Trend'"/>
+                    <t t-set="chartData" t-value="state.data.charts.pl"/>
+                    <t t-call="kio_isp_business_dashboard.ReportLineChart"/>
+
+                    <t t-set="chartTitle" t-value="'Cash Flow Trend'"/>
+                    <t t-set="chartData" t-value="state.data.charts.cash_flow"/>
+                    <t t-call="kio_isp_business_dashboard.ReportCashFlowChart"/>
+
+                    <t t-set="chartTitle" t-value="'New Customers Trend'"/>
+                    <t t-set="chartData" t-value="state.data.charts.new_customers"/>
+                    <t t-call="kio_isp_business_dashboard.ReportLineChart"/>
+                </section>
+
+                <section class="kio-report-grid middle">
+                    <t t-set="chartTitle" t-value="'Revenue vs Collection Trend'"/>
+                    <t t-set="chartData" t-value="state.data.charts.revenue_collection"/>
+                    <t t-call="kio_isp_business_dashboard.ReportLineChart"/>
+
+                    <article class="kio-card kio-report-map-card">
+                        <div class="kio-card-header compact">
+                            <h2>Client Geographic Distribution (Active Clients)</h2>
+                        </div>
+                        <div class="kio-live-map">
+                            <iframe title="OpenStreetMap Bangladesh" src="https://www.openstreetmap.org/export/embed.html?bbox=87.9%2C20.4%2C92.8%2C26.8&amp;layer=mapnik"/>
+                            <div class="kio-map-marker-layer">
+                                <span t-foreach="state.data.map.markers" t-as="marker" t-key="marker.x + '-' + marker.y" t-attf-class="kio-map-marker kio-map-{{ marker.tone }}" t-att-style="markerStyle(marker)">
+                                    <t t-esc="marker.count"/>
+                                </span>
+                            </div>
+                            <div class="kio-map-legend">
+                                <div t-foreach="state.data.map.legend" t-as="item" t-key="item.label">
+                                    <span t-attf-class="kio-map-dot kio-map-{{ item.tone }}"/>
+                                    <t t-esc="item.label"/>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                </section>
+
+                <section class="kio-report-grid bottom">
+                    <article class="kio-card kio-report-summary-card">
+                        <div class="kio-card-header compact"><h2>P&amp;L Summary (Year to Date)</h2></div>
+                        <div class="kio-report-summary-table">
+                            <div><strong>Particulars</strong><strong>Amount</strong></div>
+                            <div t-foreach="state.data.pl_summary" t-as="row" t-key="row.label" t-att-class="row.highlight ? 'highlight' : ''">
+                                <span t-esc="row.label"/>
+                                <b t-esc="formatCurrency(row.amount)"/>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="kio-card kio-report-summary-card">
+                        <div class="kio-card-header compact"><h2>Cash Flow Summary (Year to Date)</h2></div>
+                        <div class="kio-report-summary-table">
+                            <div><strong>Particulars</strong><strong>Amount</strong></div>
+                            <div t-foreach="state.data.cash_summary" t-as="row" t-key="row.label" t-att-class="row.highlight ? 'highlight' : row.negative ? 'negative' : ''">
+                                <span t-esc="row.label"/>
+                                <b t-esc="formatCurrency(row.amount)"/>
+                            </div>
+                        </div>
+                    </article>
+
+                    <t t-set="chartTitle" t-value="'New vs Churned Customers Trend'"/>
+                    <t t-set="chartData" t-value="state.data.charts.new_vs_churn"/>
+                    <t t-call="kio_isp_business_dashboard.ReportLineChart"/>
+                </section>
+
+                <div class="kio-report-updated">Last Updated: <t t-esc="state.data.period.updated_at"/></div>
+            </t>
+        </div>
+    </t>
+
+    <t t-name="kio_isp_business_dashboard.ReportLineChart">
+        <article class="kio-card kio-report-chart-card">
+            <div class="kio-card-header compact">
+                <h2 t-esc="chartTitle"/>
+                <span class="kio-report-frequency">Monthly</span>
+            </div>
+            <div class="kio-report-legend">
+                <span t-foreach="chartData.series" t-as="series" t-key="series.key" t-attf-class="kio-report-legend-item kio-tone-{{ series.tone }}">
+                    <i/><t t-esc="series.label"/>
+                </span>
+            </div>
+            <svg class="kio-report-svg" viewBox="0 0 300 156" preserveAspectRatio="none">
+                <line x1="24" y1="22" x2="288" y2="22"/>
+                <line x1="24" y1="74" x2="288" y2="74"/>
+                <line x1="24" y1="126" x2="288" y2="126"/>
+                <polyline t-foreach="chartData.series" t-as="series" t-key="series.key" t-attf-class="kio-report-line kio-stroke-{{ series.tone }}" t-att-points="series.points"/>
+            </svg>
+            <div class="kio-report-axis">
+                <span t-foreach="chartData.labels" t-as="label" t-key="label" t-esc="label"/>
+            </div>
+        </article>
+    </t>
+
+    <t t-name="kio_isp_business_dashboard.ReportCashFlowChart">
+        <article class="kio-card kio-report-chart-card">
+            <div class="kio-card-header compact">
+                <h2 t-esc="chartTitle"/>
+                <span class="kio-report-frequency">Monthly</span>
+            </div>
+            <div class="kio-report-legend">
+                <span class="kio-report-legend-item kio-tone-green"><i/>Cash In</span>
+                <span class="kio-report-legend-item kio-tone-red"><i/>Cash Out</span>
+                <span class="kio-report-legend-item kio-tone-blue"><i/>Net Cash Flow</span>
+            </div>
+            <div class="kio-combo-chart">
+                <div t-foreach="chartData.bars" t-as="bar" t-key="bar.label" class="kio-combo-bar">
+                    <div class="kio-combo-bars">
+                        <span class="cash-in" t-att-style="'height: ' + bar.cash_in + 'px;'"/>
+                        <span class="cash-out" t-att-style="'height: ' + bar.cash_out + 'px;'"/>
+                    </div>
+                    <small t-esc="bar.label"/>
+                </div>
+            </div>
+        </article>
+    </t>
+
+    <t t-name="kio_isp_business_dashboard.ReportStackedChart">
+        <article class="kio-card kio-report-chart-card">
+            <div class="kio-card-header compact">
+                <h2 t-esc="chartTitle"/>
+                <span class="kio-report-frequency">Monthly</span>
+            </div>
+            <div class="kio-report-legend">
+                <span t-foreach="chartData.series" t-as="series" t-key="series.label" t-attf-class="kio-report-legend-item kio-tone-{{ series.tone }}">
+                    <i/><t t-esc="series.label"/>
+                </span>
+            </div>
+            <div class="kio-stacked-chart">
+                <div t-foreach="chartData.bars" t-as="bar" t-key="bar.label" class="kio-stacked-bar">
+                    <div>
+                        <span t-foreach="bar.segments" t-as="segment" t-key="segment.label" t-attf-class="kio-stack-segment kio-bg-{{ segment.tone }}" t-att-style="'height: ' + segment.height + 'px;'"/>
+                    </div>
+                    <small t-esc="bar.label"/>
+                </div>
+            </div>
+        </article>
+    </t>
+
     <!-- KPI CARD -->
     <!-- KPI CARD -->
     <t t-name="kio_isp_business_dashboard.KpiCard">

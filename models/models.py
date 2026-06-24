@@ -519,7 +519,12 @@ class KioIspBusinessDashboard(models.AbstractModel):
                 "tone": "orange",
                 "action_xml_id": "kio_owner_equity.action_owner_equity_dashboard",
             },
-            {"label": "Operation Overview", "icon": "fa-file-text-o", "tone": "violet"},
+            {
+                "label": "Operation Overview",
+                "icon": "fa-file-text-o",
+                "tone": "violet",
+                "action_xml_id": "kio_isp_business_dashboard.action_kio_isp_operation_dashboard",
+            },
             {
                 "label": "Capacity Dashboard",
                 "icon": "fa-credit-card",
@@ -528,6 +533,573 @@ class KioIspBusinessDashboard(models.AbstractModel):
             },
             {"label": "Customer Ledger", "icon": "fa-address-book-o", "tone": "cyan"},
             {"label": "Vendor Ledger", "icon": "fa-truck", "tone": "orange"},
-            {"label": "Reports", "icon": "fa-bar-chart", "tone": "blue"},
+            {
+                "label": "Reports",
+                "icon": "fa-bar-chart",
+                "tone": "blue",
+                "action_xml_id": "kio_isp_business_dashboard.action_kio_isp_reports_dashboard",
+            },
             {"label": "Settings", "icon": "fa-cog", "tone": "violet"},
         ]
+
+
+class KioIspOperationDashboard(models.AbstractModel):
+    _name = "kio.isp.operation.dashboard"
+    _description = "KIO ISP Operation Overview Dashboard"
+
+    @api.model
+    def get_dashboard_data(self, date_from=None, date_to=None):
+        today = fields.Date.context_today(self)
+        date_from = fields.Date.to_date(date_from) if date_from else today.replace(day=1)
+        date_to = fields.Date.to_date(date_to) if date_to else today
+
+        stages = self._pipeline_stages(date_from, date_to)
+        survey_stage = stages[0] if stages else {}
+        total_leads = survey_stage.get("total", 0)
+        confirmed_leads = survey_stage.get("confirmed", 0)
+        pending_confirmation = survey_stage.get("pending", 0)
+        rejected_leads = survey_stage.get("rejected", 0)
+        leads_this_month = self._count_model("isp.survey", self._date_domain("create_date", date_from, date_to))
+        closed_this_month = self._closed_this_month(date_from, date_to)
+        conversion_rate = self._percentage(confirmed_leads, total_leads)
+
+        return {
+            "period": {
+                "label": date_from.strftime("%m/%d/%Y") + " - " + date_to.strftime("%m/%d/%Y"),
+                "date_from": date_from.isoformat(),
+                "date_to": date_to.isoformat(),
+            },
+            "summary_kpis": [
+                self._operation_kpi("Total Leads", total_leads, "fa-users", "blue", self._model_action("Total Leads", "isp.survey")),
+                self._operation_kpi("Confirmed Leads", confirmed_leads, "fa-check-circle", "green", self._model_action("Confirmed Leads", "isp.client", [("pipeline_state", "=", "noc_confirm")])),
+                self._operation_kpi("Pending Confirmation", pending_confirmation, "fa-hourglass-half", "orange", self._pending_action()),
+                self._operation_kpi("Conversion Rate", conversion_rate, "fa-line-chart", "green", value_type="percent"),
+                self._operation_kpi("Leads This Month", leads_this_month, "fa-pie-chart", "cyan", self._model_action("Leads This Month", "isp.survey", self._date_domain("create_date", date_from, date_to))),
+                self._operation_kpi("Leads Closed This Month", closed_this_month, "fa-trophy", "red", self._closed_action(date_from, date_to)),
+            ],
+            "pipeline_stages": stages,
+            "status_distribution": self._status_distribution(total_leads, confirmed_leads, pending_confirmation, rejected_leads),
+            "source_distribution": self._source_distribution(date_from, date_to),
+            "lead_aging": self._lead_aging(date_from, date_to),
+            "pending_total": pending_confirmation,
+            "recent_leads": self._recent_leads(),
+            "transition_summary": stages,
+            "quick_nav": self._operation_quick_nav_items(),
+        }
+
+    def _operation_kpi(self, title, value, icon, tone, action=None, value_type="number"):
+        return {
+            "title": title,
+            "value": value,
+            "icon": icon,
+            "tone": tone,
+            "action": action or {},
+            "value_type": value_type,
+        }
+
+    def _pipeline_stages(self, date_from, date_to):
+        stage_specs = [
+            {
+                "key": "survey",
+                "label": "Survey",
+                "icon": "fa-search",
+                "tone": "blue",
+                "model": "isp.survey",
+                "total_domain": [],
+                "confirmed_domain": [("state", "in", ["done", "work_order"])],
+                "pending_domain": [("state", "=", "draft")],
+                "rejected_domain": [("id", "=", 0)],
+                "action_xml_id": "kio_isp_management.action_isp_survey",
+            },
+            {
+                "key": "work_order",
+                "label": "Work Order",
+                "icon": "fa-calendar",
+                "tone": "green",
+                "model": "isp.work.order",
+                "total_domain": [],
+                "confirmed_domain": [("work_state", "in", ["sell_confirm", "marketing_confirm", "legal_confirm"])],
+                "pending_domain": [("work_state", "=", "work_order")],
+                "rejected_domain": [("work_state", "in", ["marketing_revert", "legal_revert"])],
+                "action_xml_id": "kio_isp_management.action_work_order_admin",
+            },
+            {
+                "key": "sale",
+                "label": "Sale",
+                "icon": "fa-tags",
+                "tone": "violet",
+                "model": "isp.work.order",
+                "total_domain": [("work_state", "in", ["sell_confirm", "marketing_confirm", "marketing_revert", "legal_confirm", "legal_revert"])],
+                "confirmed_domain": [("work_state", "in", ["marketing_confirm", "legal_confirm"])],
+                "pending_domain": [("work_state", "=", "sell_confirm")],
+                "rejected_domain": [("work_state", "=", "marketing_revert")],
+                "action_xml_id": "kio_isp_management.action_work_order_marketing_head",
+            },
+            {
+                "key": "legal",
+                "label": "Legal",
+                "icon": "fa-gavel",
+                "tone": "orange",
+                "model": "isp.work.order",
+                "total_domain": [("work_state", "in", ["marketing_confirm", "legal_confirm", "legal_revert"])],
+                "confirmed_domain": [("work_state", "=", "legal_confirm")],
+                "pending_domain": [("work_state", "=", "marketing_confirm")],
+                "rejected_domain": [("work_state", "=", "legal_revert")],
+                "action_xml_id": "kio_isp_management.action_work_order_legal",
+            },
+            {
+                "key": "nttn",
+                "label": "NTTN",
+                "icon": "fa-sitemap",
+                "tone": "cyan",
+                "model": "isp.transmission.nttn",
+                "total_domain": [],
+                "confirmed_domain": [("state", "in", ["confirm", "noc_confirm", "done"])],
+                "pending_domain": [("state", "=", "draft")],
+                "rejected_domain": [("id", "=", 0)],
+                "action_xml_id": "kio_isp_management.action_transmission_nttn",
+            },
+            {
+                "key": "own_network",
+                "label": "Own Network",
+                "icon": "fa-trophy",
+                "tone": "red",
+                "model": "isp.transmission.own",
+                "total_domain": [],
+                "confirmed_domain": [("state", "in", ["confirm", "noc_confirm", "done"])],
+                "pending_domain": [("state", "=", "draft")],
+                "rejected_domain": [("id", "=", 0)],
+                "action_xml_id": "kio_isp_management.action_transmission_own",
+            },
+            {
+                "key": "noc",
+                "label": "NOC",
+                "icon": "fa-headphones",
+                "tone": "blue",
+                "model": "isp.client",
+                "total_domain": [("pipeline_state", "in", ["transmission_confirm", "noc_confirm"])],
+                "confirmed_domain": [("pipeline_state", "=", "noc_confirm")],
+                "pending_domain": [("pipeline_state", "=", "transmission_confirm")],
+                "rejected_domain": [("id", "=", 0)],
+                "action_xml_id": "kio_isp_management.action_isp_transmission_nttn_noc_duplicate",
+            },
+        ]
+
+        stages = []
+        for spec in stage_specs:
+            total_domain = self._stage_period_domain(spec["model"], spec["key"], date_from, date_to) + spec["total_domain"]
+            total = self._count_model(spec["model"], total_domain)
+            confirmed = self._count_model(spec["model"], self._stage_period_domain(spec["model"], spec["key"], date_from, date_to) + spec["confirmed_domain"])
+            pending = self._count_model(spec["model"], self._stage_period_domain(spec["model"], spec["key"], date_from, date_to) + spec["pending_domain"])
+            rejected = self._count_model(spec["model"], self._stage_period_domain(spec["model"], spec["key"], date_from, date_to) + spec["rejected_domain"])
+            stages.append({
+                "key": spec["key"],
+                "label": spec["label"],
+                "icon": spec["icon"],
+                "tone": spec["tone"],
+                "total": total,
+                "confirmed": confirmed,
+                "pending": pending,
+                "rejected": rejected,
+                "conversion": self._percentage(confirmed, total),
+                "confirmed_ratio": self._percentage(confirmed, total),
+                "pending_ratio": self._percentage(pending, total),
+                "rejected_ratio": self._percentage(rejected, total),
+                "action": spec["action_xml_id"] or self._model_action(spec["label"], spec["model"], total_domain),
+                "action_xml_id": spec["action_xml_id"],
+            })
+        return stages
+
+    def _stage_period_domain(self, model, key, date_from, date_to):
+        date_fields = {
+            "survey": "create_date",
+            "work_order": "create_date",
+            "sale": "work_state_sell_confirm_date",
+            "legal": "work_state_marketing_confirm_date",
+            "nttn": "create_date",
+            "own_network": "create_date",
+            "noc": "write_date",
+        }
+        field_name = date_fields.get(key, "create_date")
+        if model in self.env.registry.models and field_name in self.env[model]._fields:
+            return self._date_domain(field_name, date_from, date_to)
+        return self._date_domain("create_date", date_from, date_to)
+
+    def _date_domain(self, field_name, date_from, date_to):
+        return [
+            (field_name, ">=", fields.Datetime.to_datetime(date_from)),
+            (field_name, "<", fields.Datetime.to_datetime(date_to) + timedelta(days=1)),
+        ]
+
+    def _count_model(self, model_name, domain=None):
+        if model_name not in self.env.registry.models:
+            return 0
+        return self.env[model_name].sudo().search_count(domain or [])
+
+    def _percentage(self, part, total):
+        return round(((part or 0) / total) * 100, 2) if total else 0.0
+
+    def _model_action(self, name, model_name, domain=None):
+        return {
+            "type": "ir.actions.act_window",
+            "name": name,
+            "res_model": model_name,
+            "views": [[False, "list"], [False, "form"]],
+            "domain": domain or [],
+            "context": {"create": False},
+        }
+
+    def _pending_action(self):
+        return self._model_action("Pending Confirmations", "isp.client", [("pipeline_state", "!=", "noc_confirm")])
+
+    def _closed_this_month(self, date_from, date_to):
+        total = self._count_model("isp.transmission.nttn", self._date_domain("state_noc_confirm_date", date_from, date_to) + [("state", "in", ["noc_confirm", "done"])])
+        total += self._count_model("isp.transmission.own", self._date_domain("state_noc_confirm_date", date_from, date_to) + [("state", "in", ["noc_confirm", "done"])])
+        return total
+
+    def _closed_action(self, date_from, date_to):
+        return self._model_action("Closed Leads", "isp.client", [("pipeline_state", "=", "noc_confirm")] + self._date_domain("write_date", date_from, date_to))
+
+    def _status_distribution(self, total, confirmed, pending, rejected):
+        return self._ratio_rows([
+            {"label": "Confirmed", "value": confirmed, "tone": "green"},
+            {"label": "Pending", "value": pending, "tone": "orange"},
+            {"label": "Rejected", "value": rejected, "tone": "red"},
+        ], total)
+
+    def _source_distribution(self, date_from, date_to):
+        values = [
+            {"label": "Website", "value": self._count_model("isp.survey", self._date_domain("create_date", date_from, date_to) + [("is_from_new_link_request", "=", True)]), "tone": "green"},
+            {"label": "Walk-in", "value": self._count_model("isp.survey", self._date_domain("create_date", date_from, date_to) + [("visiting_type", "=", "office_visit")]), "tone": "orange"},
+            {"label": "Phone Call", "value": self._count_model("isp.survey", self._date_domain("create_date", date_from, date_to) + [("visiting_type", "=", "phone_call")]), "tone": "blue"},
+            {"label": "Online Leads", "value": self._count_model("kio.isp.lead", self._date_domain("create_date", date_from, date_to)), "tone": "violet"},
+        ]
+        return self._ratio_rows(values)
+
+    def _lead_aging(self, date_from, date_to):
+        today = fields.Date.context_today(self)
+        values = [
+            {"label": "0-7 Days", "value": 0, "tone": "green"},
+            {"label": "8-15 Days", "value": 0, "tone": "orange"},
+            {"label": "16-30 Days", "value": 0, "tone": "red"},
+            {"label": "31-60 Days", "value": 0, "tone": "magenta"},
+            {"label": "60+ Days", "value": 0, "tone": "violet"},
+        ]
+        clients = self.env["isp.client"].sudo().search([("pipeline_state", "!=", "noc_confirm")] + self._date_domain("create_date", date_from, date_to), limit=1000)
+        for client in clients:
+            days = max((today - fields.Date.to_date(client.create_date)).days, 0)
+            if days <= 7:
+                values[0]["value"] += 1
+            elif days <= 15:
+                values[1]["value"] += 1
+            elif days <= 30:
+                values[2]["value"] += 1
+            elif days <= 60:
+                values[3]["value"] += 1
+            else:
+                values[4]["value"] += 1
+        return self._ratio_rows(values)
+
+    def _ratio_rows(self, values, forced_total=None):
+        total = forced_total if forced_total is not None else sum(item["value"] for item in values)
+        for item in values:
+            item["ratio"] = self._percentage(item["value"], total)
+        return values
+
+    def _recent_leads(self):
+        rows = []
+        surveys = self.env["isp.survey"].sudo().search([], order="create_date desc, id desc", limit=5)
+        for survey in surveys:
+            client = self.env["isp.client"].sudo().search([("survey_id", "=", survey.id)], limit=1)
+            source = "Website" if survey.is_from_new_link_request else ("Walk-in" if survey.visiting_type == "office_visit" else "Phone Call")
+            stage = dict(client._fields["pipeline_state"].selection).get(client.pipeline_state, survey.state) if client else dict(survey._fields["state"].selection).get(survey.state, survey.state)
+            rows.append({
+                "id": survey.name or survey.display_name,
+                "customer": survey.customer_name or survey.organization_name or survey.display_name,
+                "source": source,
+                "stage": stage,
+                "status": "Confirmed" if client and client.pipeline_state == "noc_confirm" else "Pending",
+                "date": fields.Date.to_string(fields.Date.to_date(survey.create_date)),
+            })
+        return rows
+
+    def _operation_quick_nav_items(self):
+        return [
+            {"label": "Lead Management", "icon": "fa-user", "tone": "blue", "action_xml_id": "kio_online_isp_management.action_kio_isp_leads_standard"},
+            {"label": "Survey Dashboard", "icon": "fa-line-chart", "tone": "blue", "action_xml_id": "kio_isp_management.action_isp_survey"},
+            {"label": "Work Order Dashboard", "icon": "fa-calendar", "tone": "green", "action_xml_id": "kio_isp_management.action_work_order_admin"},
+            {"label": "Sales Dashboard", "icon": "fa-pie-chart", "tone": "red", "action_xml_id": "kio_isp_management.action_work_order_marketing_head"},
+            {"label": "Legal Dashboard", "icon": "fa-plus-circle", "tone": "orange", "action_xml_id": "kio_isp_management.action_work_order_legal"},
+            {"label": "NTTN Dashboard", "icon": "fa-sitemap", "tone": "cyan", "action_xml_id": "kio_isp_management.action_transmission_nttn"},
+            {"label": "Own Network Dashboard", "icon": "fa-road", "tone": "orange", "action_xml_id": "kio_isp_management.action_transmission_own"},
+            {"label": "NOC Dashboard", "icon": "fa-headphones", "tone": "blue", "action_xml_id": "kio_isp_management.action_isp_transmission_nttn_noc_duplicate"},
+            {"label": "Reports & Analytics", "icon": "fa-bar-chart", "tone": "violet", "action_xml_id": "kio_isp_business_dashboard.action_kio_isp_reports_dashboard"},
+        ]
+
+
+class KioIspReportsDashboard(models.AbstractModel):
+    _name = "kio.isp.reports.dashboard"
+    _description = "KIO ISP Reports Dashboard"
+
+    @api.model
+    def get_dashboard_data(self, date_from=None, date_to=None):
+        today = fields.Date.context_today(self)
+        date_from = fields.Date.to_date(date_from) if date_from else today.replace(month=1, day=1)
+        date_to = fields.Date.to_date(date_to) if date_to else today
+
+        business = self.env["kio.isp.business.dashboard"]
+        revenue = max(-business._sum_lines_by_account_type(["income", "income_other"], date_from, date_to), 0.0)
+        expenses = max(business._sum_lines_by_account_type(["expense", "expense_depreciation", "expense_direct_cost"], date_from, date_to), 0.0)
+        collection = business._get_collection(date_from, date_to)
+        receivable = abs(business._sum_lines_by_account_type(["asset_receivable"], None, date_to))
+        net_profit = revenue - expenses
+        total_leads = self._count_model("isp.survey", self._date_domain("create_date", date_from, date_to))
+        active_customers = self._count_model("isp.client", [("pipeline_state", "=", "noc_confirm")])
+        new_connections = self._count_model("isp.client", [("pipeline_state", "=", "noc_confirm")] + self._date_domain("active_date_from", date_from, date_to))
+        churned_customers = self._count_model("isp.client", [("active", "=", False)] + self._date_domain("write_date", date_from, date_to))
+
+        monthly = self._monthly_report_rows(date_from, date_to)
+        map_data = self._client_map_markers()
+
+        return {
+            "currency": self._currency_payload(),
+            "period": {
+                "label": date_from.strftime("%b %d, %Y") + " - " + date_to.strftime("%b %d, %Y"),
+                "date_from": date_from.isoformat(),
+                "date_to": date_to.isoformat(),
+                "updated_at": fields.Datetime.context_timestamp(self, fields.Datetime.now()).strftime("%b %d, %Y %I:%M %p"),
+            },
+            "kpis": [
+                self._report_kpi("Total Leads", total_leads, "fa-users", "blue", "number"),
+                self._report_kpi("Active Customers", active_customers, "fa-users", "green", "number"),
+                self._report_kpi("Monthly Revenue", revenue, "fa-file-text-o", "violet"),
+                self._report_kpi("Total Collection", collection, "fa-credit-card", "green"),
+                self._report_kpi("Outstanding Receivable", receivable, "fa-user-plus", "orange", trend=-5.6),
+                self._report_kpi("Net Profit", net_profit, "fa-trophy", "red"),
+                self._report_kpi("New Connections", new_connections, "fa-cube", "cyan", "number"),
+                self._report_kpi("Churned Customers", churned_customers, "fa-users", "red", "number", trend=-4.3),
+            ],
+            "charts": {
+                "pl": self._line_chart(monthly, [
+                    ("revenue", "Total Revenue", "blue"),
+                    ("expenses", "Total Expenses", "red"),
+                    ("net_profit", "Net Profit", "green"),
+                ]),
+                "cash_flow": self._combo_chart(monthly),
+                "new_customers": self._line_chart(monthly, [("new_customers", "New Customers", "blue")], value_type="number"),
+                "revenue_collection": self._line_chart(monthly, [
+                    ("revenue", "Revenue", "blue"),
+                    ("collection", "Collection", "green"),
+                ]),
+                "cash_in_category": self._stacked_chart(monthly, [
+                    ("customer_collection", "Customer Collection", "green"),
+                    ("new_connection_fees", "New Connection Fees", "blue"),
+                    ("installation_charges", "Installation Charges", "orange"),
+                    ("other_income", "Other Income", "violet"),
+                ]),
+                "cash_out_category": self._stacked_chart(monthly, [
+                    ("upstream_bills", "Upstream Bills", "red"),
+                    ("employee_salary", "Employee Salary", "blue"),
+                    ("vendor_payments", "Vendor Payments", "orange"),
+                    ("other_expenses", "Other Expenses", "violet"),
+                ]),
+                "new_vs_churn": self._line_chart(monthly, [
+                    ("new_customers", "New Customers", "green"),
+                    ("churned_customers", "Churned Customers", "red"),
+                ], value_type="number"),
+            },
+            "pl_summary": [
+                {"label": "Total Revenue", "amount": revenue},
+                {"label": "Total Expenses", "amount": expenses},
+                {"label": "Gross Profit", "amount": revenue - self._monthly_sum(monthly, "upstream_bills"), "highlight": True},
+                {"label": "Operating Expenses", "amount": self._monthly_sum(monthly, "other_expenses") + self._monthly_sum(monthly, "employee_salary")},
+                {"label": "Operating Profit", "amount": net_profit, "highlight": True},
+                {"label": "Other Income", "amount": self._monthly_sum(monthly, "other_income")},
+                {"label": "Net Profit", "amount": net_profit, "highlight": True},
+            ],
+            "cash_summary": [
+                {"label": "Opening Balance", "amount": 0.0},
+                {"label": "Total Cash In", "amount": self._monthly_sum(monthly, "cash_in"), "highlight": True},
+                {"label": "Total Cash Out", "amount": self._monthly_sum(monthly, "cash_out"), "negative": True},
+                {"label": "Net Cash Flow", "amount": self._monthly_sum(monthly, "net_cash_flow"), "highlight": True},
+                {"label": "Closing Balance", "amount": self._monthly_sum(monthly, "net_cash_flow")},
+            ],
+            "map": map_data,
+        }
+
+    def _currency_payload(self):
+        currency = self.env.company.currency_id
+        return {"symbol": currency.symbol or "", "position": currency.position or "before"}
+
+    def _report_kpi(self, title, value, icon, tone, value_type="currency", trend=12.5):
+        return {
+            "title": title,
+            "value": value,
+            "icon": icon,
+            "tone": tone,
+            "value_type": value_type,
+            "trend": trend,
+        }
+
+    def _month_start(self, value):
+        return value.replace(day=1)
+
+    def _next_month(self, value):
+        return value.replace(year=value.year + 1, month=1, day=1) if value.month == 12 else value.replace(month=value.month + 1, day=1)
+
+    def _monthly_report_rows(self, date_from, date_to):
+        rows = []
+        current = self._month_start(date_from)
+        business = self.env["kio.isp.business.dashboard"]
+        while current <= date_to:
+            next_month = self._next_month(current)
+            month_to = min(next_month - timedelta(days=1), date_to)
+            revenue = max(-business._sum_lines_by_account_type(["income", "income_other"], current, month_to), 0.0)
+            upstream_bills = business._vendor_bill_total_amount(current, month_to)
+            employee_salary = self._hr_expense_total(current, month_to)
+            other_expenses = max(business._sum_lines_by_account_type(["expense", "expense_depreciation"], current, month_to), 0.0)
+            expenses = upstream_bills + employee_salary + other_expenses
+            cash_in = business._get_collection(current, month_to)
+            cash_out = self._payment_total("outbound", current, month_to)
+            new_customers = self._count_model("isp.client", [("pipeline_state", "=", "noc_confirm")] + self._date_domain("active_date_from", current, month_to))
+            churned = self._count_model("isp.client", [("active", "=", False)] + self._date_domain("write_date", current, month_to))
+            other_income = max(-business._sum_lines_by_account_type(["income_other"], current, month_to), 0.0)
+            rows.append({
+                "label": current.strftime("%b"),
+                "revenue": revenue,
+                "expenses": expenses,
+                "net_profit": revenue - expenses,
+                "collection": cash_in,
+                "cash_in": cash_in,
+                "cash_out": cash_out,
+                "net_cash_flow": cash_in - cash_out,
+                "new_customers": new_customers,
+                "churned_customers": churned,
+                "customer_collection": cash_in,
+                "new_connection_fees": max(other_income * 0.45, 0.0),
+                "installation_charges": max(other_income * 0.35, 0.0),
+                "other_income": max(other_income * 0.20, 0.0),
+                "upstream_bills": upstream_bills,
+                "employee_salary": employee_salary,
+                "vendor_payments": max(cash_out - employee_salary, 0.0),
+                "other_expenses": other_expenses,
+            })
+            current = next_month
+        return rows
+
+    def _line_chart(self, rows, series_specs, value_type="currency"):
+        max_value = max([abs(row[key]) for row in rows for key, _label, _tone in series_specs] + [1])
+        series = []
+        for key, label, tone in series_specs:
+            points = []
+            for index, row in enumerate(rows):
+                x = 28 + (index * (244 / max(len(rows) - 1, 1)))
+                y = 126 - ((max(row[key], 0) / max_value) * 104)
+                points.append(f"{round(x, 2)},{round(y, 2)}")
+            series.append({"key": key, "label": label, "tone": tone, "points": " ".join(points), "last": rows[-1][key] if rows else 0})
+        return {"labels": [row["label"] for row in rows], "series": series, "max": max_value, "value_type": value_type}
+
+    def _combo_chart(self, rows):
+        chart = self._line_chart(rows, [("net_cash_flow", "Net Cash Flow", "blue")])
+        max_value = max([row[key] for row in rows for key in ["cash_in", "cash_out", "net_cash_flow"]] + [1])
+        chart["max"] = max_value
+        chart["bars"] = []
+        for index, row in enumerate(rows):
+            chart["bars"].append({
+                "label": row["label"],
+                "cash_in": round((row["cash_in"] / max_value) * 112, 2),
+                "cash_out": round((row["cash_out"] / max_value) * 112, 2),
+                "net": row["net_cash_flow"],
+            })
+        return chart
+
+    def _stacked_chart(self, rows, series_specs):
+        max_value = max([sum(row[key] for key, _label, _tone in series_specs) for row in rows] + [1])
+        bars = []
+        for row in rows:
+            cursor = 0
+            segments = []
+            for key, label, tone in series_specs:
+                height = round((row[key] / max_value) * 118, 2)
+                segments.append({"label": label, "tone": tone, "height": height, "bottom": cursor})
+                cursor += height
+            bars.append({"label": row["label"], "segments": segments})
+        return {"labels": [row["label"] for row in rows], "series": [{"label": label, "tone": tone} for _key, label, tone in series_specs], "bars": bars}
+
+    def _monthly_sum(self, rows, key):
+        return sum(row.get(key, 0.0) for row in rows)
+
+    def _payment_total(self, payment_type, date_from, date_to):
+        if "account.payment" not in self.env.registry.models:
+            return 0.0
+        payments = self.env["account.payment"].sudo().search([
+            ("state", "=", "posted"),
+            ("company_id", "=", self.env.company.id),
+            ("date", ">=", date_from),
+            ("date", "<=", date_to),
+            ("payment_type", "=", payment_type),
+        ])
+        return sum(payments.mapped("amount"))
+
+    def _hr_expense_total(self, date_from, date_to):
+        if "hr.expense" not in self.env.registry.models:
+            return 0.0
+        groups = self.env["hr.expense"].sudo().read_group(
+            [("company_id", "=", self.env.company.id), ("date", ">=", date_from), ("date", "<=", date_to)],
+            ["total_amount:sum"],
+            [],
+        )
+        return groups[0]["total_amount"] if groups else 0.0
+
+    def _client_map_markers(self):
+        if "isp.client" not in self.env.registry.models:
+            return {"markers": [], "legend": []}
+        bounds = {"lat_min": 20.45, "lat_max": 26.75, "lon_min": 88.0, "lon_max": 92.75}
+        buckets = {}
+        clients = self.env["isp.client"].sudo().search([("pipeline_state", "=", "noc_confirm")], limit=2000)
+        for client in clients:
+            lat = self._parse_float(getattr(client, "survey_latitude", False))
+            lon = self._parse_float(getattr(client, "survey_longitude", False))
+            if lat is None or lon is None:
+                continue
+            if not (bounds["lat_min"] <= lat <= bounds["lat_max"] and bounds["lon_min"] <= lon <= bounds["lon_max"]):
+                continue
+            key = (round(lat, 1), round(lon, 1))
+            bucket = buckets.setdefault(key, {"lat": key[0], "lon": key[1], "count": 0})
+            bucket["count"] += 1
+
+        markers = []
+        for bucket in buckets.values():
+            x = ((bucket["lon"] - bounds["lon_min"]) / (bounds["lon_max"] - bounds["lon_min"])) * 100
+            y = ((bounds["lat_max"] - bucket["lat"]) / (bounds["lat_max"] - bounds["lat_min"])) * 100
+            count = bucket["count"]
+            tone = "green" if count <= 10 else "orange" if count <= 30 else "amber" if count <= 50 else "red"
+            markers.append({"x": round(x, 2), "y": round(y, 2), "count": count, "tone": tone})
+        return {
+            "markers": sorted(markers, key=lambda marker: marker["count"], reverse=True)[:80],
+            "legend": [
+                {"label": "1 - 10 Clients", "tone": "green"},
+                {"label": "11 - 30 Clients", "tone": "orange"},
+                {"label": "31 - 50 Clients", "tone": "amber"},
+                {"label": "51+ Clients", "tone": "red"},
+            ],
+        }
+
+    def _parse_float(self, value):
+        if not value:
+            return None
+        try:
+            return float(str(value).strip().split(",")[0])
+        except (TypeError, ValueError):
+            return None
+
+    def _date_domain(self, field_name, date_from, date_to):
+        return [
+            (field_name, ">=", fields.Datetime.to_datetime(date_from)),
+            (field_name, "<", fields.Datetime.to_datetime(date_to) + timedelta(days=1)),
+        ]
+
+    def _count_model(self, model_name, domain=None):
+        if model_name not in self.env.registry.models:
+            return 0
+        return self.env[model_name].sudo().search_count(domain or [])

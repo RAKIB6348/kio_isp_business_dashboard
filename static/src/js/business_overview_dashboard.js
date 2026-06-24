@@ -5,6 +5,8 @@ import { useService } from "@web/core/utils/hooks";
 import { Component, onWillStart, useState } from "@odoo/owl";
 
 const DATE_RANGE_STORAGE_KEY = "kio_isp_business_dashboard_date_range";
+const OPERATION_DATE_RANGE_STORAGE_KEY = "kio_isp_operation_dashboard_date_range";
+const REPORTS_DATE_RANGE_STORAGE_KEY = "kio_isp_reports_dashboard_date_range";
 
 export class BusinessOverviewDashboard extends Component {
     setup() {
@@ -240,4 +242,327 @@ BusinessOverviewDashboard.template =
 registry.category("actions").add(
     "kio_isp_business_dashboard.business_overview",
     BusinessOverviewDashboard
+);
+
+export class OperationOverviewDashboard extends Component {
+    setup() {
+        this.orm = useService("orm");
+        this.action = useService("action");
+
+        const dateRange = this.getStoredDateRange() || this.getCurrentMonthRange();
+
+        this.state = useState({
+            loading: true,
+            data: {},
+            dateFrom: dateRange.dateFrom,
+            dateTo: dateRange.dateTo,
+        });
+
+        onWillStart(async () => {
+            await this.loadDashboardData();
+        });
+    }
+
+    async loadDashboardData() {
+        this.state.loading = true;
+        const args =
+            this.state.dateFrom && this.state.dateTo
+                ? [this.state.dateFrom, this.state.dateTo]
+                : [];
+
+        this.state.data = await this.orm.call(
+            "kio.isp.operation.dashboard",
+            "get_dashboard_data",
+            args
+        );
+
+        this.state.dateFrom = this.state.data.period.date_from;
+        this.state.dateTo = this.state.data.period.date_to;
+        this.persistDateRange();
+        this.state.loading = false;
+    }
+
+    getCurrentMonthRange() {
+        const today = new Date();
+        const formatDate = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, "0");
+            const day = String(date.getDate()).padStart(2, "0");
+            return `${year}-${month}-${day}`;
+        };
+
+        return {
+            dateFrom: formatDate(new Date(today.getFullYear(), today.getMonth(), 1)),
+            dateTo: formatDate(today),
+        };
+    }
+
+    getStoredDateRange() {
+        const savedRange = localStorage.getItem(OPERATION_DATE_RANGE_STORAGE_KEY);
+        if (!savedRange) {
+            return null;
+        }
+
+        try {
+            const range = JSON.parse(savedRange);
+            if (!range.dateFrom || !range.dateTo) {
+                return null;
+            }
+            return range;
+        } catch (error) {
+            localStorage.removeItem(OPERATION_DATE_RANGE_STORAGE_KEY);
+            return null;
+        }
+    }
+
+    persistDateRange() {
+        if (!this.state.dateFrom || !this.state.dateTo) {
+            return;
+        }
+        localStorage.setItem(
+            OPERATION_DATE_RANGE_STORAGE_KEY,
+            JSON.stringify({
+                dateFrom: this.state.dateFrom,
+                dateTo: this.state.dateTo,
+            })
+        );
+    }
+
+    onDateFromChange(ev) {
+        this.state.dateFrom = ev.target.value;
+    }
+
+    onDateToChange(ev) {
+        this.state.dateTo = ev.target.value;
+    }
+
+    async applyDateFilter() {
+        if (!this.state.dateFrom || !this.state.dateTo) {
+            return;
+        }
+
+        if (this.state.dateFrom > this.state.dateTo) {
+            const temp = this.state.dateFrom;
+            this.state.dateFrom = this.state.dateTo;
+            this.state.dateTo = temp;
+        }
+
+        this.persistDateRange();
+        await this.loadDashboardData();
+    }
+
+    async clearDateFilter() {
+        const currentMonthRange = this.getCurrentMonthRange();
+        this.state.dateFrom = currentMonthRange.dateFrom;
+        this.state.dateTo = currentMonthRange.dateTo;
+        this.persistDateRange();
+        await this.loadDashboardData();
+    }
+
+    formatNumber(value) {
+        return (value || 0).toLocaleString();
+    }
+
+    formatPercent(value) {
+        return `${Number(value || 0).toFixed(2)}%`;
+    }
+
+    formatMetric(item) {
+        return item.value_type === "percent"
+            ? this.formatPercent(item.value)
+            : this.formatNumber(item.value);
+    }
+
+    donutStyle(items) {
+        const colors = {
+            blue: "#2563eb",
+            green: "#16a34a",
+            orange: "#f59e0b",
+            red: "#ef4444",
+            violet: "#7c3aed",
+            cyan: "#0891b2",
+            magenta: "#be185d",
+        };
+
+        let cursor = 0;
+        const stops = (items || []).map((item) => {
+            const start = cursor;
+            cursor += item.ratio || 0;
+            return `${colors[item.tone] || colors.blue} ${start}% ${cursor}%`;
+        });
+
+        return `background: conic-gradient(${stops.join(", ") || "#e5e7eb 0% 100%"});`;
+    }
+
+    barHeight(stage) {
+        const value = Math.max(stage.conversion || 0, 2);
+        return `height: ${value}%;`;
+    }
+
+    async openAction(action) {
+        if (!action) {
+            return;
+        }
+        await this.action.doAction(action);
+    }
+
+    async goBackToBusinessOverview() {
+        await this.action.doAction("kio_isp_business_dashboard.action_kio_isp_business_dashboard");
+    }
+
+    async openQuickNav(card) {
+        if (card?.action_xml_id) {
+            await this.action.doAction(card.action_xml_id);
+            return;
+        }
+        if (card?.action) {
+            await this.action.doAction(card.action);
+        }
+    }
+}
+
+OperationOverviewDashboard.template =
+    "kio_isp_business_dashboard.OperationOverviewDashboard";
+
+registry.category("actions").add(
+    "kio_isp_business_dashboard.operation_overview",
+    OperationOverviewDashboard
+);
+
+export class ReportsDashboard extends Component {
+    setup() {
+        this.orm = useService("orm");
+        this.action = useService("action");
+
+        const dateRange = this.getStoredDateRange() || this.getCurrentYearRange();
+
+        this.state = useState({
+            loading: true,
+            data: {},
+            dateFrom: dateRange.dateFrom,
+            dateTo: dateRange.dateTo,
+        });
+
+        onWillStart(async () => {
+            await this.loadDashboardData();
+        });
+    }
+
+    async loadDashboardData() {
+        this.state.loading = true;
+        this.state.data = await this.orm.call(
+            "kio.isp.reports.dashboard",
+            "get_dashboard_data",
+            [this.state.dateFrom, this.state.dateTo]
+        );
+        this.state.dateFrom = this.state.data.period.date_from;
+        this.state.dateTo = this.state.data.period.date_to;
+        this.persistDateRange();
+        this.state.loading = false;
+    }
+
+    getCurrentYearRange() {
+        const today = new Date();
+        const formatDate = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, "0");
+            const day = String(date.getDate()).padStart(2, "0");
+            return `${year}-${month}-${day}`;
+        };
+        return {
+            dateFrom: formatDate(new Date(today.getFullYear(), 0, 1)),
+            dateTo: formatDate(today),
+        };
+    }
+
+    getStoredDateRange() {
+        const savedRange = localStorage.getItem(REPORTS_DATE_RANGE_STORAGE_KEY);
+        if (!savedRange) {
+            return null;
+        }
+        try {
+            const range = JSON.parse(savedRange);
+            return range.dateFrom && range.dateTo ? range : null;
+        } catch (error) {
+            localStorage.removeItem(REPORTS_DATE_RANGE_STORAGE_KEY);
+            return null;
+        }
+    }
+
+    persistDateRange() {
+        localStorage.setItem(
+            REPORTS_DATE_RANGE_STORAGE_KEY,
+            JSON.stringify({ dateFrom: this.state.dateFrom, dateTo: this.state.dateTo })
+        );
+    }
+
+    onDateFromChange(ev) {
+        this.state.dateFrom = ev.target.value;
+    }
+
+    onDateToChange(ev) {
+        this.state.dateTo = ev.target.value;
+    }
+
+    async applyDateFilter() {
+        if (this.state.dateFrom > this.state.dateTo) {
+            const dateFrom = this.state.dateFrom;
+            this.state.dateFrom = this.state.dateTo;
+            this.state.dateTo = dateFrom;
+        }
+        await this.loadDashboardData();
+    }
+
+    async clearDateFilter() {
+        const range = this.getCurrentYearRange();
+        this.state.dateFrom = range.dateFrom;
+        this.state.dateTo = range.dateTo;
+        await this.loadDashboardData();
+    }
+
+    formatCurrency(amount) {
+        const currency = this.state.data.currency || {};
+        const value = Math.abs(amount || 0).toLocaleString(undefined, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+        });
+        const formatted =
+            currency.position === "after"
+                ? `${value} ${currency.symbol || ""}`
+                : `${currency.symbol || ""} ${value}`;
+        return amount < 0 ? `-${formatted}` : formatted.trim();
+    }
+
+    formatNumber(value) {
+        return (value || 0).toLocaleString();
+    }
+
+    formatMetric(item) {
+        return item.value_type === "number"
+            ? this.formatNumber(item.value)
+            : this.formatCurrency(item.value);
+    }
+
+    formatTrend(value) {
+        return `${value >= 0 ? "+" : ""}${Number(value || 0).toFixed(1)}%`;
+    }
+
+    markerStyle(marker) {
+        return `left: ${marker.x}%; top: ${marker.y}%;`;
+    }
+
+    async goBackToOperationOverview() {
+        await this.action.doAction("kio_isp_business_dashboard.action_kio_isp_operation_dashboard");
+    }
+
+    async openBusinessOverview() {
+        await this.action.doAction("kio_isp_business_dashboard.action_kio_isp_business_dashboard");
+    }
+}
+
+ReportsDashboard.template = "kio_isp_business_dashboard.ReportsDashboard";
+
+registry.category("actions").add(
+    "kio_isp_business_dashboard.reports_dashboard",
+    ReportsDashboard
 );

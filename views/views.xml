@@ -4,6 +4,16 @@
         <field name="tag">kio_isp_business_dashboard.business_overview</field>
     </record>
 
+    <record id="action_kio_isp_operation_dashboard" model="ir.actions.client">
+        <field name="name">Operation Overview</field>
+        <field name="tag">kio_isp_business_dashboard.operation_overview</field>
+    </record>
+
+    <record id="action_kio_isp_reports_dashboard" model="ir.actions.client">
+        <field name="name">Reports Dashboard</field>
+        <field name="tag">kio_isp_business_dashboard.reports_dashboard</field>
+    </record>
+
     <menuitem id="menu_kio_isp_business_dashboard_root"
               name="Business Overview"
               sequence="35"
